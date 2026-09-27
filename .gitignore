@@ -1,0 +1,7 @@
+# Build output. Keep release/config.json so a fresh bundle documents every key.
+/release/website
+/release/tables.hash
+
+# Local development configuration may contain credentials.
+/config.json
+

@@ -1,0 +1,27 @@
+{
+  "server": {
+    "address": ":8080",
+    "read_header_timeout": "5s",
+    "read_timeout": "15s",
+    "write_timeout": "30s",
+    "idle_timeout": "1m",
+    "shutdown_timeout": "15s"
+  },
+  "database": {
+    "host": "127.0.0.1",
+    "port": 3306,
+    "name": "website",
+    "user": "website",
+    "password": "change-me",
+    "parameters": {
+      "charset": "utf8mb4",
+      "collation": "utf8mb4_unicode_ci"
+    },
+    "connect_timeout": "10s",
+    "migration_timeout": "2m",
+    "max_open_connections": 25,
+    "max_idle_connections": 10,
+    "connection_max_lifetime": "5m"
+  }
+}
+
