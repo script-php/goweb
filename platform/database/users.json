@@ -1,0 +1,27 @@
+{
+  "name": "users",
+  "engine": "InnoDB",
+  "charset": "utf8mb4",
+  "collation": "utf8mb4_unicode_ci",
+  "columns": [
+    {"name": "id", "type": "BIGINT UNSIGNED", "auto_increment": true},
+    {"name": "email", "type": "VARCHAR(255)"},
+    {"name": "display_name", "type": "VARCHAR(120)", "nullable": true},
+    {"name": "password_hash", "type": "VARCHAR(255)", "nullable": true},
+    {"name": "active", "type": "BOOLEAN", "default": true},
+    {"name": "force_password_change", "type": "BOOLEAN", "default": false},
+	{"name": "avatar_media_id", "type": "BIGINT UNSIGNED", "nullable": true},
+	{"name": "email_verified_at", "type": "TIMESTAMP", "nullable": true},
+	{"name": "two_factor_enabled", "type": "BOOLEAN", "default": false},
+    {"name": "password_changed_at", "type": "TIMESTAMP", "nullable": true},
+    {"name": "created_at", "type": "TIMESTAMP", "default_expression": "CURRENT_TIMESTAMP"}
+  ],
+  "primary_key": ["id"],
+  "indexes": [
+    {"name": "uq_users_email", "columns": ["email"], "unique": true},
+    {"name": "idx_users_avatar_media", "columns": ["avatar_media_id"]}
+  ],
+  "foreign_keys": [
+    {"name": "fk_users_avatar_media", "columns": ["avatar_media_id"], "references": "media", "reference_columns": ["id"], "on_delete": "SET NULL"}
+  ]
+}

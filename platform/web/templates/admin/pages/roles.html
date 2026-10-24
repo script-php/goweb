@@ -1,0 +1,6 @@
+{{define "admin-content"}}
+<div class="toolbar"><p>Roles group permissions that can be assigned to users.</p><a class="button" href="/admin/roles/new">Create role</a></div>
+<div class="panel table-wrap"><table><thead><tr><th>Role</th><th>Slug</th><th>Users</th><th>Permissions</th><th></th></tr></thead><tbody>
+{{range .Data}}<tr><td data-label="Role">{{.Name}}</td><td data-label="Slug"><code>{{.Slug}}</code></td><td data-label="Users">{{.UserCount}}</td><td data-label="Permissions">{{len .Permissions}}</td><td class="table-action"><a href="/admin/roles/{{.ID}}">Edit</a></td></tr>{{else}}<tr class="empty-row"><td colspan="5">{{template "empty-state" (dict "Title" "No roles yet" "Message" "Create a role to group permissions for users." "ActionPath" "/admin/roles/new" "ActionLabel" "Create role")}}</td></tr>{{end}}
+</tbody></table></div>
+{{end}}

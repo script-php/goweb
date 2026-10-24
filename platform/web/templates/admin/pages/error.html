@@ -1,0 +1,8 @@
+{{define "admin-content"}}
+<section class="panel error-panel">
+  <p class="error-code">{{.Data.Status}}</p>
+  <h2>{{.Data.Title}}</h2>
+  <p>{{.Data.Message}}</p>
+  <a class="button" href="/admin/">Return to dashboard</a>
+</section>
+{{end}}

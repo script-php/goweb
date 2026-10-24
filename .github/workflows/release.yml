@@ -1,0 +1,47 @@
+name: Release
+
+on:
+  push:
+    tags: ["v[0-9]+.[0-9]+.[0-9]+"]
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-go@v7
+        with:
+          go-version-file: go.mod
+          cache: true
+      - name: Validate tag and release metadata
+        run: make release-check
+      - name: Build Linux archives
+        shell: bash
+        run: |
+          set -euo pipefail
+          version=$(tr -d '[:space:]' < version.txt)
+          mkdir -p dist
+          for arch in amd64 arm64; do
+            package="goweb-${version}-linux-${arch}"
+            mkdir -p "/tmp/${package}"
+            GOOS=linux GOARCH="$arch" CGO_ENABLED=0 go build -trimpath -ldflags "-s -w" -o "/tmp/${package}/website" .
+            cp config.example.json "/tmp/${package}/config.json"
+            cp README.md CHANGELOG.md UPGRADING.md "/tmp/${package}/"
+            cp -R deploy docs "/tmp/${package}/"
+            tar -C /tmp -czf "dist/${package}.tar.gz" "$package"
+          done
+          (cd dist && sha256sum *.tar.gz > SHA256SUMS)
+      - uses: actions/upload-artifact@v7
+        with:
+          name: release-${{ github.ref_name }}
+          path: dist/
+          if-no-files-found: error
+      - name: Publish GitHub release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh release create "${GITHUB_REF_NAME}" dist/* --verify-tag --generate-notes --title "GoWeb ${GITHUB_REF_NAME}"

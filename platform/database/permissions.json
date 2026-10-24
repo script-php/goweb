@@ -1,0 +1,12 @@
+{
+  "name": "permissions",
+  "columns": [
+    {"name": "id", "type": "BIGINT UNSIGNED", "auto_increment": true},
+    {"name": "name", "type": "VARCHAR(150)"},
+    {"name": "description", "type": "VARCHAR(255)", "nullable": true}
+  ],
+  "primary_key": ["id"],
+  "indexes": [
+    {"name": "uq_permissions_name", "columns": ["name"], "unique": true}
+  ]
+}

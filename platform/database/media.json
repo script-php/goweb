@@ -1,0 +1,26 @@
+{
+  "name": "media",
+  "columns": [
+    {"name": "id", "type": "BIGINT UNSIGNED", "auto_increment": true},
+    {"name": "storage_key", "type": "VARCHAR(190)"},
+    {"name": "original_name", "type": "VARCHAR(255)"},
+    {"name": "mime_type", "type": "VARCHAR(100)"},
+    {"name": "size_bytes", "type": "BIGINT UNSIGNED"},
+    {"name": "owner_user_id", "type": "BIGINT UNSIGNED", "nullable": true},
+    {"name": "purpose", "type": "VARCHAR(100)", "nullable": true},
+    {"name": "entity_type", "type": "VARCHAR(100)", "nullable": true},
+    {"name": "entity_id", "type": "VARCHAR(100)", "nullable": true},
+    {"name": "created_at", "type": "TIMESTAMP", "default_expression": "CURRENT_TIMESTAMP"}
+  ],
+  "primary_key": ["id"],
+  "indexes": [
+    {"name": "uq_media_storage_key", "columns": ["storage_key"], "unique": true},
+    {"name": "idx_media_owner", "columns": ["owner_user_id"]},
+    {"name": "idx_media_purpose", "columns": ["purpose"]},
+    {"name": "idx_media_entity", "columns": ["entity_type", "entity_id"]},
+    {"name": "idx_media_created", "columns": ["created_at"]}
+  ],
+  "foreign_keys": [
+    {"name": "fk_media_owner", "columns": ["owner_user_id"], "references": "users", "reference_columns": ["id"], "on_delete": "SET NULL"}
+  ]
+}

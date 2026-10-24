@@ -7,8 +7,8 @@ import (
 	"net"
 	"strconv"
 
-	"example.com/website/internal/config"
 	"github.com/go-sql-driver/mysql"
+	"script-php/goweb/platform/configuration"
 )
 
 func Open(settings config.Database) (*sql.DB, error) {

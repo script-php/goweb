@@ -2,21 +2,97 @@ package server
 
 import (
 	"database/sql"
-	"encoding/json"
-	"html/template"
 	"io/fs"
 	"net/http"
+	"strings"
 	"time"
+
+	"script-php/goweb/internal/auth"
+	"script-php/goweb/internal/clientip"
+	"script-php/goweb/internal/jobs"
+	appmedia "script-php/goweb/internal/media"
+	"script-php/goweb/internal/metrics"
+	"script-php/goweb/internal/server/admin"
+	"script-php/goweb/internal/server/catalog"
+	"script-php/goweb/internal/server/pages"
+	"script-php/goweb/internal/server/render"
+	"script-php/goweb/platform/configuration"
 )
 
-type application struct {
-	db      *sql.DB
-	pages   *template.Template
-	version string
+type options struct {
+	sessionResolver auth.SessionResolver
+	authService     *auth.Service
+	adminModules    []admin.Module
+	trustedProxies  []string
+	emailDefaults   config.Email
+	publicModules   []PublicModule
+	publicOverrides map[string]http.Handler
+	adminFeatures   admin.Features
+	media           *appmedia.Service
+	jobs            *jobs.Manager
+	backups         *admin.BackupOperations
 }
 
-func New(webFiles fs.FS, db *sql.DB, version string) (http.Handler, error) {
-	pages, err := template.ParseFS(webFiles, "templates/*.html")
+type PublicModule interface{ RegisterPublic(*Public) error }
+
+type Option func(*options)
+
+func WithSessionResolver(resolver auth.SessionResolver) Option {
+	return func(configuration *options) { configuration.sessionResolver = resolver }
+}
+
+func WithAuthentication(service *auth.Service) Option {
+	return func(configuration *options) {
+		configuration.authService = service
+		configuration.sessionResolver = service
+	}
+}
+
+func WithAdminModule(module admin.Module) Option {
+	return func(configuration *options) { configuration.adminModules = append(configuration.adminModules, module) }
+}
+
+func WithTrustedProxies(proxies []string) Option {
+	return func(configuration *options) { configuration.trustedProxies = append([]string(nil), proxies...) }
+}
+
+func WithEmailConfiguration(email config.Email) Option {
+	return func(configuration *options) { configuration.emailDefaults = email }
+}
+
+func WithPublicModule(module PublicModule) Option {
+	return func(configuration *options) {
+		configuration.publicModules = append(configuration.publicModules, module)
+	}
+}
+func WithPublicOverrides(overrides map[string]http.Handler) Option {
+	return func(configuration *options) { configuration.publicOverrides = overrides }
+}
+func WithAdminFeatures(features admin.Features) Option {
+	return func(configuration *options) { configuration.adminFeatures = features }
+}
+func WithMedia(service *appmedia.Service) Option {
+	return func(configuration *options) { configuration.media = service }
+}
+func WithJobs(manager *jobs.Manager) Option {
+	return func(configuration *options) { configuration.jobs = manager }
+}
+func WithBackups(operations *admin.BackupOperations) Option {
+	return func(configuration *options) { configuration.backups = operations }
+}
+
+func New(webFiles fs.FS, db *sql.DB, version string, suppliedOptions ...Option) (http.Handler, error) {
+	configuration := options{adminFeatures: admin.DefaultFeatures()}
+	for _, option := range suppliedOptions {
+		option(&configuration)
+	}
+	clientAddresses, err := clientip.New(configuration.trustedProxies)
+	if err != nil {
+		return nil, err
+	}
+	pageCatalog := catalog.New()
+	resourceMetrics := metrics.New()
+	renderer, err := render.New(webFiles, version, pageCatalog, admin.NewStore(db))
 	if err != nil {
 		return nil, err
 	}
@@ -26,42 +102,61 @@ func New(webFiles fs.FS, db *sql.DB, version string) (http.Handler, error) {
 		return nil, err
 	}
 
-	app := &application{db: db, pages: pages, version: version}
+	pageHandlers := pages.New(renderer, configuration.authService)
 	mux := http.NewServeMux()
-	mux.HandleFunc("GET /", app.home)
-	mux.HandleFunc("GET /healthz", app.health)
-	mux.Handle("GET /static/", http.StripPrefix("/static/", http.FileServer(http.FS(staticFiles))))
-	return securityHeaders(mux), nil
-}
-
-func (app *application) home(w http.ResponseWriter, r *http.Request) {
-	data := struct {
-		Version string
-	}{Version: app.version}
-	if err := app.pages.ExecuteTemplate(w, "index.html", data); err != nil {
-		http.Error(w, "Internal Server Error", http.StatusInternalServerError)
+	public := &Public{mux: mux, catalog: pageCatalog, pages: pageHandlers, renderer: renderer, overrides: configuration.publicOverrides}
+	if err := registerPublicRoutes(public); err != nil {
+		return nil, err
 	}
-}
-
-func (app *application) health(w http.ResponseWriter, r *http.Request) {
-	ctx, cancel := contextWithTimeout(r, 2*time.Second)
-	defer cancel()
-
-	w.Header().Set("Content-Type", "application/json")
-	if err := app.db.PingContext(ctx); err != nil {
-		w.WriteHeader(http.StatusServiceUnavailable)
-		_ = json.NewEncoder(w).Encode(map[string]string{"status": "unavailable"})
-		return
+	if configuration.media != nil {
+		registerPublicAvatars(mux, db, configuration.media)
 	}
-	_ = json.NewEncoder(w).Encode(map[string]string{"status": "ok"})
-}
-
-func securityHeaders(next http.Handler) http.Handler {
-	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		w.Header().Set("Content-Security-Policy", "default-src 'self'; style-src 'self'")
-		w.Header().Set("Referrer-Policy", "strict-origin-when-cross-origin")
-		w.Header().Set("X-Content-Type-Options", "nosniff")
-		w.Header().Set("X-Frame-Options", "DENY")
-		next.ServeHTTP(w, r)
+	for _, module := range configuration.publicModules {
+		if err := module.RegisterPublic(public); err != nil {
+			return nil, err
+		}
+	}
+	if configuration.media == nil {
+		configuration.adminFeatures.Media = false
+	}
+	adminArea, err := admin.New(db, webFiles, version, pageCatalog, resourceMetrics, configuration.emailDefaults, configuration.media, configuration.jobs, configuration.backups, configuration.adminFeatures, configuration.adminModules...)
+	if err != nil {
+		return nil, err
+	}
+	mux.Handle("/admin/", adminArea)
+	registerPrometheusMetrics(mux, resourceMetrics, db)
+	registerInfrastructureRoutes(mux, db, staticFiles, version)
+	mux.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
+		renderer.RenderError(w, r, http.StatusNotFound)
 	})
+	var handler http.Handler = mux
+	secureCookies := false
+	if configuration.authService != nil {
+		secureCookies = configuration.authService.SecureCookies()
+	}
+	maxRequestBytes := int64(11 << 20)
+	if configuration.media != nil {
+		maxRequestBytes = configuration.media.MaxBytes() + (1 << 20)
+	}
+	handler = auth.ProtectCSRFWithMaxBytes(secureCookies, maxRequestBytes, handler)
+	handler = recoverPanics(handler)
+	handler = requestLogging(handler)
+	if configuration.sessionResolver != nil {
+		handler = auth.RequirePasswordChange(handler)
+		handler = auth.Authenticate(auth.SessionCookieName, configuration.sessionResolver, handler)
+	}
+	handler = recoverPanics(handler)
+	handler = identifyRequest(handler)
+	handler = auth.WithErrorResponder(handler, func(w http.ResponseWriter, r *http.Request, status int) {
+		if strings.HasPrefix(r.URL.Path, "/admin/") {
+			adminArea.RenderError(w, r, status)
+			return
+		}
+		renderer.RenderError(w, r, status)
+	})
+	handler = databaseMaintenance(db, 2*time.Second, handler)
+	handler = securityHeaders(handler)
+	handler = resourceMetrics.Middleware(handler)
+	handler = clientAddresses.Middleware(handler)
+	return handler, nil
 }

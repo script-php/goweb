@@ -1,0 +1,28 @@
+{{define "admin-content"}}
+<section class="panel avatar-editor">
+  <div class="avatar-preview" data-avatar-preview>{{if .Data.User.AvatarMediaID}}<img src="/admin/users/{{.Data.User.ID}}/avatar" alt="Current avatar">{{else}}<span aria-hidden="true">👤</span>{{end}}</div>
+  <div class="avatar-controls"><h2>Avatar</h2><p class="hint">JPEG, PNG, GIF, or WebP within the configured upload limit.</p>
+  {{if .Data.User.ID}}
+    <div class="actions">
+      <form method="post" action="/admin/users/{{.Data.User.ID}}/avatar" enctype="multipart/form-data" data-avatar-form><input type="hidden" name="_csrf" value="{{.CSRFToken}}"><label class="button avatar-file-button">Change<input class="sr-only" type="file" name="avatar" accept="image/jpeg,image/png,image/gif,image/webp" required data-avatar-input></label></form>
+      <form method="post" action="/admin/users/{{.Data.User.ID}}/avatar/remove" data-confirm="Remove this user's avatar? The media file remains available in the media library."><input type="hidden" name="_csrf" value="{{.CSRFToken}}"><button class="secondary-button" type="submit" {{if not .Data.User.AvatarMediaID}}disabled{{end}}>Remove</button></form>
+    </div>
+  {{else}}
+    <label class="button avatar-file-button">Choose avatar<input class="sr-only" type="file" name="avatar" form="user-details" accept="image/jpeg,image/png,image/gif,image/webp" data-avatar-input></label>
+  {{end}}
+  </div>
+</section>
+<form id="user-details" class="panel form" method="post" enctype="multipart/form-data" action="{{if .Data.User.ID}}/admin/users/{{.Data.User.ID}}{{else}}/admin/users{{end}}">
+  <input type="hidden" name="_csrf" value="{{.CSRFToken}}">
+  <label>Email<input type="email" name="email" required value="{{.Data.User.Email}}"></label>
+  <label>Display name<input type="text" name="display_name" value="{{.Data.User.DisplayName}}"></label>
+  <label>{{if .Data.User.ID}}Set new password{{else}}Password{{end}}<input type="password" name="password" minlength="12" autocomplete="new-password" {{if not .Data.User.ID}}required{{end}}><small>{{if .Data.User.ID}}Leave blank to keep it. Setting a new password signs this user out everywhere.{{else}}At least 12 characters.{{end}}</small></label>
+  {{if .Data.IsCurrentUser}}<input type="hidden" name="active" value="on"><label class="check"><input type="checkbox" checked disabled> Active <small>(you cannot disable your own account)</small></label>{{else}}<label class="check"><input type="checkbox" name="active" {{if .Data.User.Active}}checked{{end}}> Active</label>{{end}}
+  <label class="check"><input type="checkbox" name="force_password_change" {{if .Data.User.ForcePasswordChange}}checked{{end}}> Require password change at next sign-in</label>
+  <fieldset><legend>Roles</legend>{{range .Data.Roles}}<label class="check"><input type="checkbox" name="roles" value="{{.ID}}" {{if containsID $.Data.User.Roles .ID}}checked{{end}}> {{.Name}}</label>{{else}}<p>Create a role before assigning one.</p>{{end}}</fieldset>
+  {{range .Data.Sections}}<fieldset data-section="{{.ID}}"><legend>{{.Title}}</legend>{{.HTML}}</fieldset>{{end}}
+  <div class="actions"><button type="submit">Save user</button><a href="/admin/users">Cancel</a></div>
+</form>
+{{if .Data.User.ID}}<form class="secondary-action" method="post" action="/admin/users/{{.Data.User.ID}}/revoke-sessions" data-confirm="Log this user out on every device?"><input type="hidden" name="_csrf" value="{{.CSRFToken}}"><button type="submit">Log out all sessions</button></form>{{end}}
+{{if .Data.User.ID}}{{if .Data.IsCurrentUser}}<p class="hint">Your own account cannot be deleted.</p>{{else}}<form class="danger-zone" method="post" action="/admin/users/{{.Data.User.ID}}/delete" data-confirm="Permanently delete this user? This also removes all of their sessions."><input type="hidden" name="_csrf" value="{{.CSRFToken}}"><button type="submit">Delete user</button></form>{{end}}{{end}}
+{{end}}

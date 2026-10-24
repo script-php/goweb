@@ -1,11 +1,14 @@
 {
   "server": {
-    "address": ":8080",
+    "address": ":9090",
+    "public_url": "http://127.0.0.1:9090",
+    "production": false,
     "read_header_timeout": "5s",
     "read_timeout": "15s",
     "write_timeout": "30s",
     "idle_timeout": "1m",
-    "shutdown_timeout": "15s"
+    "shutdown_timeout": "15s",
+    "trusted_proxies": ["127.0.0.1", "::1"]
   },
   "database": {
     "host": "127.0.0.1",
@@ -22,6 +25,36 @@
     "max_open_connections": 25,
     "max_idle_connections": 10,
     "connection_max_lifetime": "5m"
+  },
+  "authentication": {
+    "session_lifetime": "24h",
+    "secure_cookies": false,
+    "login_max_attempts": 5,
+    "login_lockout": "15m"
+  },
+  "storage": {
+    "uploads_directory": "uploads",
+    "max_upload_bytes": 10485760,
+    "allowed_mime_types": ["image/jpeg", "image/png", "image/gif", "image/webp", "application/pdf", "text/plain"]
+  },
+  "backup": {
+    "retention_count": 14
+  },
+  "email": {
+    "enabled": false,
+    "host": "smtp.example.com",
+    "port": 587,
+    "username": "",
+    "password": "",
+    "from_name": "Go website",
+    "from_address": "noreply@example.com",
+    "encryption": "starttls",
+    "timeout": "10s"
+  },
+  "service": {
+    "name": "website",
+    "description": "Go website",
+    "user": "",
+    "group": ""
   }
 }
-

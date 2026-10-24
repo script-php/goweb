@@ -1,0 +1,34 @@
+{{define "admin-content"}}
+<section class="panel cleanup-explanation">
+  <h2>Safe bidirectional cleanup</h2>
+  <p>Cleanup removes stored files without media rows, removes media rows whose files are missing, and clears every enabled application reference before removing a missing-file row. Purpose labels do not limit which rules are checked.</p>
+</section>
+
+<form class="panel form" method="post" action="/admin/media/cleanup/settings">
+  <input type="hidden" name="_csrf" value="{{.CSRFToken}}">
+  <h2>Periodic cleanup</h2>
+  <label class="check"><input type="checkbox" name="periodic" {{if .Data.Periodic}}checked{{end}}> Run cleanup periodically</label>
+  <label>Run every (hours)<input type="number" name="interval_hours" min="1" max="8760" value="{{.Data.IntervalHours}}"></label>
+  <label>Orphan-file safety age (hours)<input type="number" name="minimum_age_hours" min="1" max="8760" value="{{.Data.MinimumAgeHours}}"><small>Files newer than this are never treated as unregistered orphans.</small></label>
+  <label class="check"><input type="checkbox" name="remove_unused" {{if .Data.RemoveUnused}}checked{{end}}> Delete aged media that exists correctly but is unused by every enabled reference rule</label>
+  <fieldset><legend>Application reference rules</legend>
+    <p class="hint">All enabled locations are checked for every missing media file, regardless of purpose.</p>
+    {{range .Data.Rules}}<label class="check"><input type="checkbox" name="rules" value="{{.ID}}" {{if contains $.Data.EnabledRules .ID}}checked{{end}}><span><strong>{{.Label}}</strong><small><code>{{.Table}}.{{.Column}}</code></small></span></label>{{else}}<p>No application reference rules are registered. Add them through <code>platform.Options.MediaReferences</code>.</p>{{end}}
+  </fieldset>
+  <div class="actions"><button type="submit">Save settings</button><a href="/admin/media">Back to media</a></div>
+</form>
+
+<section class="panel">
+  <h2>Manual cleanup</h2>
+  <p class="hint">Preview performs every check without changing files or database records. Review the counts before running cleanup.</p>
+  <div class="cleanup-actions">
+    <form method="post" action="/admin/media/cleanup/run"><input type="hidden" name="_csrf" value="{{.CSRFToken}}"><button class="secondary-button" type="submit">Preview cleanup</button></form>
+    <form method="post" action="/admin/media/cleanup/run" data-confirm="Run media cleanup now? Orphan files and missing-file database rows will be permanently removed."><input type="hidden" name="_csrf" value="{{.CSRFToken}}"><input type="hidden" name="execute" value="true"><button class="danger-button" type="submit">Run cleanup now</button></form>
+  </div>
+</section>
+
+{{if .Data.Result}}<section class="panel cleanup-result" aria-live="polite">
+  <h2>{{if .Data.Result.DryRun}}Preview result{{else}}Cleanup completed{{end}}</h2>
+  <div class="resource-grid"><div><span>Orphan files</span><strong>{{.Data.Result.OrphanFiles}}</strong></div><div><span>Missing files</span><strong>{{.Data.Result.MissingFiles}}</strong></div><div><span>Unused media</span><strong>{{.Data.Result.UnusedMedia}}</strong></div><div><span>Media rows removed</span><strong>{{.Data.Result.MediaRowsRemoved}}</strong></div><div><span>References cleared</span><strong>{{.Data.Result.ReferencesCleared}}</strong></div></div>
+</section>{{end}}
+{{end}}

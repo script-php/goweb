@@ -1,0 +1,9 @@
+{{define "admin-content"}}
+<p class="hint">Registered platform and application jobs run independently of web requests. Manual runs cannot overlap an active run.</p>
+<div class="job-grid">{{range .Data}}<article class="panel job-card">
+  <div class="toolbar"><div><h2>{{.Label}}</h2><code>{{.ID}}</code></div><span class="status {{if eq .State "failed"}}status-disabled{{else}}status-active{{end}}">{{.State}}</span></div>
+  <dl class="media-metadata"><div><dt>Last run</dt><dd>{{.LastRun}} ({{.Duration}})</dd></div><div><dt>Next run</dt><dd>{{.NextRun}}</dd></div><div><dt>Runs / failures</dt><dd>{{.RunCount}} / {{.FailureCount}}</dd></div>{{if .LastError}}<div><dt>Last error</dt><dd>{{.LastError}}</dd></div>{{end}}</dl>
+  <form class="job-settings" method="post" action="/admin/jobs/{{.ID}}"><input type="hidden" name="_csrf" value="{{$.CSRFToken}}"><label class="check"><input type="checkbox" name="enabled" {{if .Enabled}}checked{{end}}> Enabled</label><label>Interval (minutes)<input type="number" min="1" max="525600" name="interval_minutes" value="{{.IntervalMinutes}}"></label><button type="submit">Save</button></form>
+  <form method="post" action="/admin/jobs/{{.ID}}/run"><input type="hidden" name="_csrf" value="{{$.CSRFToken}}"><button class="secondary-button" type="submit">Run now</button></form>
+</article>{{else}}{{template "empty-state" (dict "Title" "No jobs registered" "Message" "Applications can register jobs through platform.Options.BackgroundJobs.")}}{{end}}</div>
+{{end}}

@@ -1,0 +1,20 @@
+{
+  "name": "background_jobs",
+  "columns": [
+    {"name": "job_id", "type": "VARCHAR(120)"},
+    {"name": "label", "type": "VARCHAR(190)"},
+    {"name": "enabled", "type": "BOOLEAN", "default": true},
+    {"name": "interval_seconds", "type": "INT UNSIGNED"},
+    {"name": "status", "type": "VARCHAR(20)", "default": "idle"},
+    {"name": "last_started_at", "type": "DATETIME", "nullable": true},
+    {"name": "last_finished_at", "type": "DATETIME", "nullable": true},
+    {"name": "last_duration_ms", "type": "BIGINT UNSIGNED", "default": 0},
+    {"name": "last_error", "type": "TEXT", "nullable": true},
+    {"name": "run_count", "type": "BIGINT UNSIGNED", "default": 0},
+    {"name": "failure_count", "type": "BIGINT UNSIGNED", "default": 0},
+    {"name": "next_run_at", "type": "DATETIME", "nullable": true},
+    {"name": "updated_at", "type": "TIMESTAMP", "default_expression": "CURRENT_TIMESTAMP", "on_update": "CURRENT_TIMESTAMP"}
+  ],
+  "primary_key": ["job_id"],
+  "indexes": [{"name": "idx_background_jobs_due", "columns": ["enabled", "next_run_at"]}]
+}

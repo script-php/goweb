@@ -1,0 +1,12 @@
+{{define "admin-content"}}
+<form class="panel form" method="post" action="{{if .Data.Role.ID}}/admin/roles/{{.Data.Role.ID}}{{else}}/admin/roles{{end}}">
+  <input type="hidden" name="_csrf" value="{{.CSRFToken}}">
+  <label>Name<input type="text" name="name" required value="{{.Data.Role.Name}}"></label>
+  <label>Slug<input type="text" name="slug" value="{{.Data.Role.Slug}}" placeholder="generated-from-name" {{if .Data.IsSystem}}readonly{{end}}></label>
+  <label>Description<textarea name="description" rows="3">{{.Data.Role.Description}}</textarea></label>
+  <div class="permission-groups">{{range .Data.Groups}}<fieldset data-permission-group><legend>{{.Name}}</legend>{{if not $.Data.IsSystem}}<div class="permission-actions"><button type="button" data-permission-select>All</button><button type="button" data-permission-clear>None</button></div>{{end}}<div class="permission-grid">{{range .Permissions}}<label class="check permission-option"><input type="checkbox" name="permissions" value="{{.Name}}" {{if contains $.Data.Role.Permissions .Name}}checked{{end}} {{if $.Data.IsSystem}}disabled{{end}}> <span><code>{{.Name}}</code><small>{{.Description}}</small></span></label>{{end}}</div></fieldset>{{end}}</div>
+  {{if .Data.IsSystem}}<p class="hint">The built-in Administrator role always receives every registered permission automatically.</p>{{end}}
+  <div class="actions"><button type="submit">Save role</button><a href="/admin/roles">Cancel</a></div>
+</form>
+{{if .Data.Role.ID}}{{if .Data.IsSystem}}<p class="hint">The built-in Administrator role cannot be deleted.</p>{{else}}<form class="danger-zone" method="post" action="/admin/roles/{{.Data.Role.ID}}/delete" data-confirm="Delete this role? Users assigned to it will lose its permissions."><input type="hidden" name="_csrf" value="{{.CSRFToken}}"><button type="submit">Delete role</button></form>{{end}}{{end}}
+{{end}}

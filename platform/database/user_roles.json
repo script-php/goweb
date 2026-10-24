@@ -1,0 +1,12 @@
+{
+  "name": "user_roles",
+  "columns": [
+    {"name": "user_id", "type": "BIGINT UNSIGNED"},
+    {"name": "role_id", "type": "BIGINT UNSIGNED"}
+  ],
+  "primary_key": ["user_id", "role_id"],
+  "foreign_keys": [
+    {"name": "fk_user_roles_user", "columns": ["user_id"], "references": "users", "reference_columns": ["id"], "on_delete": "CASCADE"},
+    {"name": "fk_user_roles_role", "columns": ["role_id"], "references": "roles", "reference_columns": ["id"], "on_delete": "CASCADE"}
+  ]
+}

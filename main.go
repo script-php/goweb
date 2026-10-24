@@ -6,33 +6,30 @@ import (
 	"errors"
 	"flag"
 	"fmt"
-	"io/fs"
 	"log/slog"
-	"net/http"
 	"os"
 	"os/signal"
+	"path/filepath"
 	"syscall"
-	"time"
 
-	"example.com/website/internal/config"
-	appdb "example.com/website/internal/database"
-	"example.com/website/internal/server"
-	"github.com/script-php/tables"
+	"script-php/goweb/internal/app"
+	"script-php/goweb/internal/auth"
+	appdb "script-php/goweb/internal/database"
+	"script-php/goweb/internal/service"
+	"script-php/goweb/platform"
+	"script-php/goweb/platform/configuration"
 )
 
-// The database schema is compiled into the binary. Rebuild after changing a
-// file in database/.
+// Project table additions and patches are compiled separately from the
+// platform-owned default schemas.
 //
-//go:embed database/*.json
-var schemaFiles embed.FS
+//go:embed database
+var applicationSchemaFiles embed.FS
 
-// Templates and public assets are also compiled into the binary so release/
-// only needs the executable and its config.json.
+// Project templates and assets are a separate, higher-priority layer.
 //
-//go:embed web
-var webFiles embed.FS
-
-var version = "dev"
+//go:embed app/web
+var applicationFiles embed.FS
 
 func main() {
 	if err := run(); err != nil {
@@ -42,83 +39,135 @@ func main() {
 }
 
 func run() error {
+	version := applicationVersion()
 	configPath := flag.String("config", "", "path to config.json (defaults to the file beside the executable)")
+	register := flag.Bool("register", false, "register and enable this binary as a systemd service")
+	unregister := flag.Bool("unregister", false, "stop, disable, and remove this binary's systemd service")
+	showVersion := flag.Bool("version", false, "print the embedded application version")
+	createAdmin := flag.String("create-admin", "", "create or reset an administrator for the given email")
+	check := flag.Bool("check", false, "validate configuration and deployment readiness without serving")
+	backupDirectory := flag.String("backup", "", "back up the database into this directory and exit")
+	schemaPlan := flag.Bool("schema-plan", false, "print pending database schema SQL without applying it")
+	verifyBackupPath := flag.String("verify-backup", "", "verify a backup archive and exit")
+	restorePath := flag.String("restore", "", "restore a backup archive and exit (requires --confirm-restore)")
+	confirmRestore := flag.Bool("confirm-restore", false, "confirm replacement of database data and uploaded files")
 	flag.Parse()
+	if *showVersion {
+		fmt.Println(version)
+		return nil
+	}
+	if *register && *unregister {
+		return errors.New("--register and --unregister cannot be used together")
+	}
 
 	cfg, path, err := config.Load(*configPath)
 	if err != nil {
 		return err
 	}
 	slog.Info("configuration loaded", "path", path, "version", version)
+	if *verifyBackupPath != "" {
+		summary, err := verifyBackup(*verifyBackupPath)
+		if err != nil {
+			return fmt.Errorf("verify backup: %w", err)
+		}
+		slog.Info("backup verified", "path", *verifyBackupPath, "entries", summary.Files, "upload_files", summary.UploadFiles, "sql_bytes", summary.SQLBytes)
+		return nil
+	}
+	if *restorePath != "" {
+		if !*confirmRestore {
+			return errors.New("--restore requires --confirm-restore because it replaces database data and uploaded files")
+		}
+		previousUploads, err := restoreBackup(cfg, *restorePath, filepath.Dir(path))
+		if err != nil {
+			return fmt.Errorf("restore backup: %w", err)
+		}
+		slog.Info("backup restored", "path", *restorePath, "previous_uploads", previousUploads)
+		return nil
+	}
+	if *register {
+		if err := service.Register(cfg.Service, path); err != nil {
+			return fmt.Errorf("register service: %w", err)
+		}
+		slog.Info("service registered", "name", service.Name(cfg.Service))
+		return nil
+	}
+	if *unregister {
+		if err := service.Unregister(cfg.Service); err != nil {
+			return fmt.Errorf("unregister service: %w", err)
+		}
+		slog.Info("service unregistered", "name", service.Name(cfg.Service))
+		return nil
+	}
 
 	db, err := appdb.Open(cfg.Database)
 	if err != nil {
 		return fmt.Errorf("connect to database: %w", err)
 	}
 	defer db.Close()
-
-	// Apply the embedded table definitions before constructing or starting the
-	// HTTP server. No request can be served against an outdated schema.
-	migrationContext, cancelMigration := context.WithTimeout(context.Background(), cfg.Database.MigrationTimeout.Duration)
-	result, err := tables.NewTables(db, schemaFiles).Apply(migrationContext)
-	cancelMigration()
-	if err != nil {
-		return fmt.Errorf("apply database tables: %w", err)
-	}
-	slog.Info("database schema ready", "skipped", result.Skipped, "changes", len(result.Queries))
-
-	webRoot, err := fs.Sub(webFiles, "web")
-	if err != nil {
-		return fmt.Errorf("open embedded web files: %w", err)
-	}
-
-	handler, err := server.New(webRoot, db, version)
-	if err != nil {
-		return fmt.Errorf("create web server: %w", err)
-	}
-
-	httpServer := &http.Server{
-		Addr:              cfg.Server.Address,
-		Handler:           handler,
-		ReadHeaderTimeout: cfg.Server.ReadHeaderTimeout.Duration,
-		ReadTimeout:       cfg.Server.ReadTimeout.Duration,
-		WriteTimeout:      cfg.Server.WriteTimeout.Duration,
-		IdleTimeout:       cfg.Server.IdleTimeout.Duration,
-	}
-
-	serveErrors := make(chan error, 1)
-	go func() {
-		slog.Info("website listening", "address", cfg.Server.Address)
-		serveErrors <- httpServer.ListenAndServe()
-	}()
-
-	signals := make(chan os.Signal, 1)
-	signal.Notify(signals, syscall.SIGINT, syscall.SIGTERM)
-	defer signal.Stop(signals)
-
-	select {
-	case signal := <-signals:
-		slog.Info("shutdown requested", "signal", signal.String())
-	case err := <-serveErrors:
-		if !errors.Is(err, http.ErrServerClosed) {
-			return fmt.Errorf("serve website: %w", err)
+	schemaOptions := platform.Schemas{FS: applicationSchemaFiles, Root: "database", Existing: platform.SchemaMergeExisting}
+	if *schemaPlan {
+		planContext := context.Background()
+		var cancel context.CancelFunc = func() {}
+		if cfg.Database.MigrationTimeout.Duration > 0 {
+			planContext, cancel = context.WithTimeout(planContext, cfg.Database.MigrationTimeout.Duration)
+		}
+		defer cancel()
+		queries, err := platform.PlanSchemas(planContext, db, schemaOptions)
+		if err != nil {
+			return err
+		}
+		if len(queries) == 0 {
+			fmt.Println("No schema changes pending.")
+			return nil
+		}
+		for _, query := range queries {
+			fmt.Println(query + ";")
 		}
 		return nil
 	}
 
-	shutdownContext, cancelShutdown := context.WithTimeout(context.Background(), cfg.Server.ShutdownTimeout.Duration)
-	defer cancelShutdown()
-	if err := httpServer.Shutdown(shutdownContext); err != nil {
-		return fmt.Errorf("graceful shutdown: %w", err)
+	runtime, err := platform.New(platform.Options{
+		DB: db, Config: cfg, Version: version,
+		Resources: platform.Resources{FS: applicationFiles, Root: "app/web"},
+		Schemas:   schemaOptions,
+		Features:  platform.DefaultFeatures(), RegisterPages: app.RegisterPages, RegisterAdmin: app.RegisterAdmin,
+		Backups: backupAdminOperations(cfg, filepath.Dir(path), version),
+	})
+	if err != nil {
+		return fmt.Errorf("create platform: %w", err)
 	}
-
-	select {
-	case err := <-serveErrors:
-		if err != nil && !errors.Is(err, http.ErrServerClosed) {
-			return fmt.Errorf("serve website: %w", err)
+	if *backupDirectory != "" {
+		path, err := createBackup(cfg.Database, cfg.Storage, cfg.Backup, *backupDirectory, filepath.Dir(path), version)
+		if err != nil {
+			return err
 		}
-	case <-time.After(time.Second):
+		slog.Info("database backup created", "path", path)
+		return nil
+	}
+	if *createAdmin != "" {
+		password, err := readNewPassword()
+		if err != nil {
+			return err
+		}
+		if err := auth.BootstrapAdministrator(context.Background(), db, *createAdmin, password); err != nil {
+			return fmt.Errorf("create administrator: %w", err)
+		}
+		slog.Info("administrator ready", "email", *createAdmin)
+		return nil
 	}
 
-	return nil
+	if *check {
+		if err := checkDeployment(cfg.Service); err != nil {
+			return fmt.Errorf("deployment check: %w", err)
+		}
+		if !cfg.Authentication.SecureCookies {
+			slog.Warn("secure cookies are disabled; enable them for production HTTPS")
+		}
+		slog.Info("deployment check passed", "version", version, "database", cfg.Database.Name)
+		return nil
+	}
+	runContext, stop := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
+	defer stop()
+	slog.Info("website listening", "address", cfg.Server.Address)
+	return runtime.Run(runContext)
 }

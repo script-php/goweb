@@ -1,0 +1,9 @@
+{
+  "name": "settings",
+  "columns": [
+    {"name": "setting_key", "type": "VARCHAR(150)"},
+    {"name": "setting_value", "type": "TEXT"},
+    {"name": "updated_at", "type": "TIMESTAMP", "default_expression": "CURRENT_TIMESTAMP", "on_update": "CURRENT_TIMESTAMP"}
+  ],
+  "primary_key": ["setting_key"]
+}

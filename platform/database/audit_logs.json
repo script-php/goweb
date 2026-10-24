@@ -1,0 +1,20 @@
+{
+  "name": "audit_logs",
+  "columns": [
+    {"name": "id", "type": "BIGINT UNSIGNED", "auto_increment": true},
+    {"name": "actor_user_id", "type": "BIGINT UNSIGNED", "nullable": true},
+    {"name": "actor_email", "type": "VARCHAR(255)", "nullable": true},
+    {"name": "action", "type": "VARCHAR(100)"},
+    {"name": "target_type", "type": "VARCHAR(100)"},
+    {"name": "target_id", "type": "VARCHAR(100)", "nullable": true},
+    {"name": "details", "type": "TEXT", "nullable": true},
+    {"name": "ip_address", "type": "VARCHAR(45)", "nullable": true},
+    {"name": "created_at", "type": "TIMESTAMP", "default_expression": "CURRENT_TIMESTAMP"}
+  ],
+  "primary_key": ["id"],
+  "indexes": [
+    {"name": "idx_audit_created", "columns": ["created_at"]},
+    {"name": "idx_audit_actor", "columns": ["actor_user_id"]},
+    {"name": "idx_audit_action", "columns": ["action"]}
+  ]
+}

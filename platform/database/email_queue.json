@@ -1,0 +1,21 @@
+{
+  "name": "email_queue",
+  "columns": [
+    {"name": "id", "type": "BIGINT UNSIGNED", "auto_increment": true},
+    {"name": "recipient", "type": "VARCHAR(255)"},
+    {"name": "subject", "type": "VARCHAR(255)"},
+    {"name": "body", "type": "TEXT"},
+    {"name": "status", "type": "VARCHAR(20)", "default": "queued"},
+    {"name": "attempts", "type": "INT UNSIGNED", "default": 0},
+    {"name": "next_attempt_at", "type": "DATETIME", "nullable": true},
+    {"name": "last_error", "type": "TEXT", "nullable": true},
+    {"name": "sent_at", "type": "DATETIME", "nullable": true},
+    {"name": "created_at", "type": "TIMESTAMP", "default_expression": "CURRENT_TIMESTAMP"},
+    {"name": "updated_at", "type": "TIMESTAMP", "default_expression": "CURRENT_TIMESTAMP", "on_update": "CURRENT_TIMESTAMP"}
+  ],
+  "primary_key": ["id"],
+  "indexes": [
+    {"name": "idx_email_queue_delivery", "columns": ["status", "next_attempt_at", "id"]},
+    {"name": "idx_email_queue_created", "columns": ["created_at"]}
+  ]
+}

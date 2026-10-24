@@ -1,0 +1,77 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  go:
+    name: Go ${{ matrix.go }}
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        go: ["1.24.x", "stable"]
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-go@v7
+        with:
+          go-version: ${{ matrix.go }}
+          cache: true
+      - run: go test -race ./...
+      - run: go vet ./...
+      - run: ./scripts/check-release.sh
+      - name: Build release binary
+        run: CGO_ENABLED=0 go build -trimpath -o /tmp/goweb .
+      - run: /tmp/goweb --version
+
+  database:
+    name: ${{ matrix.name }}
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - name: MySQL 8.0
+            image: mysql:8.0
+          - name: MySQL 8.4
+            image: mysql:8.4
+          - name: MariaDB 10.6
+            image: mariadb:10.6
+          - name: MariaDB 11.4
+            image: mariadb:11.4
+    services:
+      database:
+        image: ${{ matrix.image }}
+        env:
+          MYSQL_ROOT_PASSWORD: root
+          MYSQL_DATABASE: goweb
+          MARIADB_ROOT_PASSWORD: root
+          MARIADB_DATABASE: goweb
+        ports:
+          - 3306:3306
+        options: >-
+          --health-cmd="mysqladmin ping --host=127.0.0.1 --user=root --password=root"
+          --health-interval=10s
+          --health-timeout=5s
+          --health-retries=12
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-go@v7
+        with:
+          go-version-file: go.mod
+          cache: true
+      - name: Install database clients
+        run: sudo apt-get update && sudo apt-get install --yes default-mysql-client
+      - run: ./scripts/ci-integration-config.sh
+      - run: make build
+      - name: Apply schemas and preflight
+        run: ./release/website --check
+      - name: Integration tests
+        env:
+          WEBSITE_INTEGRATION_DSN: root:root@tcp(127.0.0.1:3306)/goweb?parseTime=true
+          WEBSITE_INTEGRATION_ALLOW_RESTORE: "YES"
+        run: make integration-test

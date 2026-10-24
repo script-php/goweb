@@ -1,0 +1,12 @@
+{
+  "name": "projects",
+  "columns": [
+    {"name": "id", "type": "BIGINT UNSIGNED", "auto_increment": true},
+    {"name": "name", "type": "VARCHAR(150)"},
+    {"name": "logo_media_id", "type": "BIGINT UNSIGNED", "nullable": true},
+    {"name": "created_at", "type": "TIMESTAMP", "default_expression": "CURRENT_TIMESTAMP"}
+  ],
+  "primary_key": ["id"],
+  "indexes": [{"name": "idx_projects_logo_media", "columns": ["logo_media_id"]}],
+  "foreign_keys": [{"name": "fk_projects_logo_media", "columns": ["logo_media_id"], "references": "media", "reference_columns": ["id"], "on_delete": "SET NULL"}]
+}

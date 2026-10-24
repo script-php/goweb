@@ -1,0 +1,9 @@
+{
+  "name": "users",
+  "columns": [
+    {"name": "company", "type": "VARCHAR(150)", "nullable": true}
+  ],
+  "indexes": [
+    {"name": "idx_users_company", "columns": ["company"]}
+  ]
+}

@@ -1,0 +1,20 @@
+{
+  "name": "sessions",
+  "columns": [
+    {"name": "token_hash", "type": "CHAR(64)"},
+    {"name": "user_id", "type": "BIGINT UNSIGNED"},
+    {"name": "expires_at", "type": "DATETIME"},
+    {"name": "last_used_at", "type": "DATETIME"},
+    {"name": "created_at", "type": "TIMESTAMP", "default_expression": "CURRENT_TIMESTAMP"},
+    {"name": "ip_address", "type": "VARCHAR(45)", "nullable": true},
+    {"name": "user_agent", "type": "VARCHAR(255)", "nullable": true}
+  ],
+  "primary_key": ["token_hash"],
+  "indexes": [
+    {"name": "idx_sessions_user", "columns": ["user_id"]},
+    {"name": "idx_sessions_expires", "columns": ["expires_at"]}
+  ],
+  "foreign_keys": [
+    {"name": "fk_sessions_user", "columns": ["user_id"], "references": "users", "reference_columns": ["id"], "on_delete": "CASCADE"}
+  ]
+}

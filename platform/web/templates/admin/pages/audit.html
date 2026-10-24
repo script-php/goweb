@@ -1,0 +1,21 @@
+{{define "admin-content"}}
+<div class="toolbar"><p>Security and administrative changes.</p></div>
+<form class="filter-form" method="get" action="/admin/audit">
+  <label><span>Search</span><input type="search" name="q" value="{{.Data.Query}}" placeholder="Actor, target, action, or IP"></label>
+  <label><span>Action</span><select name="action"><option value="">All actions</option>{{range .Data.Actions}}<option value="{{.}}" {{if eq $.Data.Action .}}selected{{end}}>{{.}}</option>{{end}}</select></label>
+  <label><span>From</span><input type="date" name="from" value="{{.Data.From}}"></label>
+  <label><span>To</span><input type="date" name="to" value="{{.Data.To}}"></label>
+  <button type="submit">Filter</button>
+  {{if or .Data.Query .Data.Action .Data.From .Data.To}}<a href="/admin/audit">Clear</a>{{end}}
+</form>
+<p class="list-summary">{{.Data.Total}} event{{if ne .Data.Total 1}}s{{end}} found</p>
+<p><a class="button secondary-button" href="/admin/audit/export?q={{urlquery .Data.Query}}&action={{urlquery .Data.Action}}&from={{.Data.From}}&to={{.Data.To}}">Export CSV</a></p>
+<div class="panel table-wrap"><table><thead><tr><th>Time</th><th>Actor</th><th>Action</th><th>Target</th><th>Details</th><th>IP</th></tr></thead><tbody>
+{{range .Data.Entries}}<tr><td data-label="Time">{{.CreatedAt.Format "2006-01-02 15:04:05"}}</td><td data-label="Actor">{{if .ActorEmail}}{{.ActorEmail}}{{else}}System{{end}}</td><td data-label="Action"><code>{{.Action}}</code></td><td data-label="Target">{{.TargetType}}{{if .TargetID}} #{{.TargetID}}{{end}}</td><td data-label="Details">{{if .Details}}{{.Details}}{{else}}—{{end}}</td><td data-label="IP">{{if .IPAddress}}{{.IPAddress}}{{else}}—{{end}}</td></tr>{{else}}<tr class="empty-row"><td colspan="6">{{template "empty-state" (dict "Title" "No matching activity" "Message" "Events will appear here when administrative actions occur." "ActionPath" "/admin/audit" "ActionLabel" "Clear filters")}}</td></tr>{{end}}
+</tbody></table></div>
+{{if gt .Data.Pages 1}}<nav class="pagination" aria-label="Audit pages">
+  {{if .Data.HasPrevious}}<a href="/admin/audit?q={{urlquery .Data.Query}}&action={{urlquery .Data.Action}}&from={{.Data.From}}&to={{.Data.To}}&page={{.Data.Previous}}">← Previous</a>{{else}}<span></span>{{end}}
+  <span>Page {{.Data.Page}} of {{.Data.Pages}}</span>
+  {{if .Data.HasNext}}<a href="/admin/audit?q={{urlquery .Data.Query}}&action={{urlquery .Data.Action}}&from={{.Data.From}}&to={{.Data.To}}&page={{.Data.Next}}">Next →</a>{{else}}<span></span>{{end}}
+</nav>{{end}}
+{{end}}

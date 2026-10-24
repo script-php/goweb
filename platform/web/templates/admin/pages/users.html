@@ -1,0 +1,17 @@
+{{define "admin-content"}}
+<div class="toolbar"><p>Manage the people who can access the application.</p><a class="button" href="/admin/users/new">Create user</a></div>
+<form class="search-form" method="get" action="/admin/users">
+  <label><span class="sr-only">Search users</span><input type="search" name="q" value="{{.Data.Query}}" placeholder="Search by name or email"></label>
+  <button type="submit">Search</button>
+  {{if .Data.Query}}<a href="/admin/users">Clear</a>{{end}}
+</form>
+<p class="list-summary">{{.Data.Total}} user{{if ne .Data.Total 1}}s{{end}} found</p>
+<div class="panel table-wrap"><table><thead><tr><th>Name</th><th>Email</th><th>Roles</th><th>Status</th><th>Created</th><th></th></tr></thead><tbody>
+{{range .Data.Users}}<tr><td data-label="Name">{{if .DisplayName}}{{.DisplayName}}{{else}}—{{end}}</td><td data-label="Email">{{.Email}}</td><td data-label="Roles">{{if .RoleNames}}{{range $index, $role := .RoleNames}}{{if $index}}, {{end}}{{$role}}{{end}}{{else}}—{{end}}</td><td data-label="Status"><span class="status {{if .Active}}status-active{{else}}status-disabled{{end}}">{{if .Active}}Active{{else}}Disabled{{end}}</span></td><td data-label="Created">{{.CreatedAt.Format "2006-01-02"}}</td><td class="table-action"><a href="/admin/users/{{.ID}}">Edit</a></td></tr>{{else}}<tr class="empty-row"><td colspan="6">{{if $.Data.Query}}{{template "empty-state" (dict "Title" "No matching users" "Message" "Try a different name or email." "ActionPath" "/admin/users" "ActionLabel" "Clear search")}}{{else}}{{template "empty-state" (dict "Title" "No users yet" "Message" "Create the first account for this website." "ActionPath" "/admin/users/new" "ActionLabel" "Create user")}}{{end}}</td></tr>{{end}}
+</tbody></table></div>
+{{if gt .Data.Pages 1}}<nav class="pagination" aria-label="User pages">
+  {{if .Data.HasPrevious}}<a href="/admin/users?q={{urlquery .Data.Query}}&page={{.Data.Previous}}">← Previous</a>{{else}}<span></span>{{end}}
+  <span>Page {{.Data.Page}} of {{.Data.Pages}}</span>
+  {{if .Data.HasNext}}<a href="/admin/users?q={{urlquery .Data.Query}}&page={{.Data.Next}}">Next →</a>{{else}}<span></span>{{end}}
+</nav>{{end}}
+{{end}}

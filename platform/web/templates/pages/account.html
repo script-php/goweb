@@ -1,0 +1,18 @@
+{{define "content"}}
+  <p class="eyebrow">Account</p>
+  <h1>Welcome, {{if .CurrentUser.DisplayName}}{{.CurrentUser.DisplayName}}{{else}}{{.CurrentUser.Email}}{{end}}.</h1>
+	{{if .Data.Notice}}<p class="form-success">{{.Data.Notice}}</p>{{end}}
+	{{if eq .Data.Error "verify-before-2fa"}}<p class="form-error">Verify your email address before enabling two-factor authentication.</p>{{end}}
+	{{if eq .Data.Error "email-disabled"}}<p class="form-error">Outgoing email must be configured before enabling two-factor authentication.</p>{{end}}
+	{{if eq .Data.Error "verification-email"}}<p class="form-error">The verification email could not be sent.</p>{{end}}
+  <p>This protected-page example receives the authenticated user from the request context.</p>
+	<section class="account-security">
+	  <h2>Email security</h2>
+	  {{if .CurrentUser.EmailVerified}}<p class="form-success">Email address verified.</p>{{else}}<p>Your email address is not verified.</p><form method="post" action="/send-verification"><input type="hidden" name="_csrf" value="{{.CSRFToken}}"><button type="submit">Send verification email</button></form>{{end}}
+	  {{if ne (index .Settings "security.two_factor_available") "false"}}
+	  <h2>Two-factor authentication</h2>
+	  <p>{{if .CurrentUser.TwoFactorEnabled}}Enabled. A code is emailed whenever you sign in.{{else}}Disabled. Verify your email before enabling it.{{end}}</p>
+	  <form method="post" action="/account/two-factor"><input type="hidden" name="_csrf" value="{{.CSRFToken}}"><input type="hidden" name="enabled" value="{{if .CurrentUser.TwoFactorEnabled}}false{{else}}true{{end}}"><button type="submit">{{if .CurrentUser.TwoFactorEnabled}}Disable{{else}}Enable{{end}} two-factor authentication</button></form>
+	  {{end}}
+	</section>
+{{end}}

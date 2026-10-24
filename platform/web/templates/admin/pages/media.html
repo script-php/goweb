@@ -1,0 +1,30 @@
+{{define "admin-content"}}
+<div class="toolbar"><p class="hint">Upload and manage application files.</p><a class="button secondary-button" href="/admin/media/cleanup">Cleanup</a></div>
+<section class="panel media-upload-panel">
+  <h2>Upload file</h2>
+  <form class="media-upload-form" method="post" action="/admin/media" enctype="multipart/form-data">
+    <input type="hidden" name="_csrf" value="{{.CSRFToken}}">
+    <label>File<input type="file" name="file" required></label>
+    <label>Purpose <input type="text" name="purpose" maxlength="100" placeholder="Optional, for example avatar or post"></label>
+    <label>Attach to type <input type="text" name="entity_type" maxlength="100" placeholder="Optional, for example article"></label>
+    <label>Record ID <input type="text" name="entity_id" maxlength="100" placeholder="Optional"></label>
+    <button type="submit">Upload file</button>
+  </form>
+</section>
+<form class="media-filter-form" method="get" action="/admin/media">
+  <label>Search<input type="search" name="q" value="{{.Data.Query}}" placeholder="Filename, type, or purpose"></label>
+  <label>Purpose<select name="purpose"><option value="">All purposes</option>{{range .Data.Purposes}}<option value="{{.}}" {{if eq . $.Data.Purpose}}selected{{end}}>{{.}}</option>{{end}}</select></label>
+  <label>Date<select name="date"><option value="">All dates</option>{{range .Data.Dates}}<option value="{{.}}" {{if eq . $.Data.Date}}selected{{end}}>{{.}}</option>{{end}}</select></label>
+  <button type="submit">Filter</button>
+  {{if or .Data.Query .Data.Purpose .Data.Date}}<a href="/admin/media">Clear</a>{{end}}
+</form>
+{{if .Data.Files}}<div class="toolbar"><span class="list-summary">{{.Data.Total}} item(s) · page {{.Data.Page}} of {{.Data.Pages}}</span><form id="media-bulk-form" method="post" action="/admin/media/bulk-delete" data-confirm="Delete every selected media item? Application references may be cleared by foreign keys."><input type="hidden" name="_csrf" value="{{.CSRFToken}}"><button class="danger-button" type="submit">Delete selected</button></form></div>{{end}}
+{{if .Data.Files}}<div class="media-grid">{{range .Data.Files}}
+  <article class="media-card">
+    <label class="media-select"><input type="checkbox" name="media_ids" value="{{.ID}}" form="media-bulk-form"> Select</label>
+    <a class="media-preview" href="/admin/media/{{.ID}}" target="_blank" rel="noopener">{{if hasPrefix .MIMEType "image/"}}<img src="/admin/media/{{.ID}}" alt="">{{else}}<span>{{.MIMEType}}</span>{{end}}</a>
+    <div class="media-details"><strong title="{{.OriginalName}}">{{.OriginalName}}</strong><small>{{.MIMEType}} · {{.Size}} bytes</small><small>Purpose: {{if .Purpose}}{{.Purpose}}{{else}}general{{end}}</small>{{if .EntityType}}<small>Attached to {{.EntityType}} {{.EntityID}}</small>{{else}}<small>Not attached to a record</small>{{end}}<small class="media-path" title="{{.StorageKey}}">{{.StorageKey}}</small><small>{{.CreatedAt.Format "2006-01-02 15:04"}}</small></div>
+    <div class="media-card-actions"><a class="button secondary-button" href="/admin/media/{{.ID}}/edit">Edit</a><form method="post" action="/admin/media/{{.ID}}/delete" data-confirm="Delete this file permanently? References from application records may stop working."><input type="hidden" name="_csrf" value="{{$.CSRFToken}}"><button class="danger-button" type="submit">Delete</button></form></div>
+  </article>
+{{end}}</div><nav class="pagination" aria-label="Media pages"><span>{{if .Data.HasPrevious}}<a href="{{.Data.PreviousURL}}">← Previous</a>{{end}}</span><span>Page {{.Data.Page}} of {{.Data.Pages}}</span><span>{{if .Data.HasNext}}<a href="{{.Data.NextURL}}">Next →</a>{{end}}</span></nav>{{else}}{{template "empty-state" (dict "Title" "No media found" "Message" "Upload a file or clear the current search.")}}{{end}}
+{{end}}

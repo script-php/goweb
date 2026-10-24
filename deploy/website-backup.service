@@ -1,0 +1,16 @@
+[Unit]
+Description=Website database and uploads backup
+After=network-online.target mysql.service
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+User=website
+Group=website
+WorkingDirectory=/opt/website
+ExecStart=/opt/website/website --backup backups
+UMask=0077
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ReadWritePaths=/opt/website/backups /opt/website/uploads

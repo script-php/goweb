@@ -1,0 +1,48 @@
+{{define "admin-base"}}
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{{.Title}} · Admin</title>
+  <link rel="stylesheet" href="/static/css/admin.css?v={{.Version}}">
+  <script src="/static/js/admin.js?v={{.Version}}" defer></script>
+</head>
+<body class="admin-shell">
+  <header class="mobile-topbar">
+    <button class="menu-toggle" type="button" aria-label="Open admin menu" aria-controls="admin-sidebar" aria-expanded="false" data-menu-open>
+      <span></span><span></span><span></span>
+    </button>
+    <a href="/admin/">Administration</a>
+  </header>
+  <aside class="admin-sidebar" id="admin-sidebar">
+    <div class="sidebar-heading">
+      <a class="admin-brand" href="/admin/">Administration</a>
+      <button class="menu-close" type="button" aria-label="Close admin menu" data-menu-close>×</button>
+    </div>
+    <nav aria-label="Admin navigation">
+      {{range .Navigation}}<a href="{{.Path}}">{{.Label}}</a>{{end}}
+    </nav>
+    <a class="back-link" href="/">← View website</a>
+  </aside>
+  <button class="menu-backdrop" type="button" aria-label="Close admin menu" tabindex="-1" data-menu-close></button>
+  <main>
+    <nav class="breadcrumbs" aria-label="Breadcrumb">{{range $index, $item := .Breadcrumbs}}{{if $index}}<span aria-hidden="true">/</span>{{end}}{{if .Path}}<a href="{{.Path}}">{{.Label}}</a>{{else}}<span aria-current="page">{{.Label}}</span>{{end}}{{end}}</nav>
+    <header class="admin-header">
+      <div><p class="eyebrow">Admin</p><h1>{{.Title}}</h1></div>
+      {{if .CurrentUser}}<div class="admin-user"><span>{{.CurrentUser.Email}}</span><form method="post" action="/logout"><input type="hidden" name="_csrf" value="{{.CSRFToken}}"><button type="submit">Log out</button></form></div>{{end}}
+    </header>
+    {{range .Notifications}}{{template "notification" .}}{{end}}
+    {{template "admin-content" .}}
+  </main>
+  <dialog class="confirm-dialog" data-confirm-dialog aria-labelledby="confirm-title">
+    <form method="dialog">
+      <h2 id="confirm-title">Confirm action</h2>
+      <p data-confirm-message></p>
+      <div class="actions"><button value="cancel" class="secondary-button">Cancel</button><button value="confirm" class="danger-button">Confirm</button></div>
+    </form>
+  </dialog>
+  <footer>Version {{.Version}}</footer>
+</body>
+</html>
+{{end}}

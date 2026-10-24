@@ -1,0 +1,10 @@
+{{define "admin-content"}}
+<div class="toolbar"><p>The latest 100 queued, delivered, and failed messages. Message bodies are not displayed.</p></div>
+<div class="panel table-wrap"><table><thead><tr><th>Created</th><th>Recipient</th><th>Subject</th><th>Status</th><th>Attempts</th><th>Result</th><th>Action</th></tr></thead><tbody>
+{{range .Data.Deliveries}}<tr>
+  <td data-label="Created">{{.CreatedAt.Format "2006-01-02 15:04:05"}}</td><td data-label="Recipient">{{.Recipient}}</td><td data-label="Subject">{{.Subject}}</td><td data-label="Status"><code>{{.Status}}</code></td><td data-label="Attempts">{{.Attempts}}</td>
+  <td data-label="Result">{{if .SentAt.Valid}}Sent {{.SentAt.Time.Format "2006-01-02 15:04:05"}}{{else if .LastError}}{{.LastError}}{{else if .NextAttemptAt.Valid}}Next attempt {{.NextAttemptAt.Time.Format "2006-01-02 15:04:05"}}{{else}}—{{end}}</td>
+  <td data-label="Action">{{if eq .Status "failed"}}<form method="post" action="/admin/emails/{{.ID}}/retry"><input type="hidden" name="_csrf" value="{{$.CSRFToken}}"><button type="submit">Retry</button></form>{{else}}—{{end}}</td>
+</tr>{{else}}<tr class="empty-row"><td colspan="7">{{template "empty-state" (dict "Title" "No email deliveries" "Message" "Queued and delivered email will appear here." "ActionPath" "/admin/settings" "ActionLabel" "Email settings")}}</td></tr>{{end}}
+</tbody></table></div>
+{{end}}

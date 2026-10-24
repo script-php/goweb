@@ -1,0 +1,20 @@
+{{define "admin-content"}}
+<div class="stat-grid">
+  <a href="/admin/users"><strong>{{.Data.Users}}</strong><span>Users</span></a>
+  <a href="/admin/roles"><strong>{{.Data.Roles}}</strong><span>Roles</span></a>
+  <a href="/admin/pages"><strong>{{.Data.PublicPages}}</strong><span>Public pages</span></a>
+  <a href="/admin/pages"><strong>{{.Data.AdminPages}}</strong><span>Admin routes</span></a>
+</div>
+<section class="panel"><h2>Website resources</h2><p class="hint">Process usage and HTTP traffic since this website started.</p>
+  <div class="resource-grid">
+    <div><span>Memory (RAM)</span><strong>{{.Data.Resources.Memory}}</strong></div>
+    <div><span>Process CPU</span><strong>{{.Data.Resources.CPU}}</strong></div>
+    <div><span>Bandwidth in</span><strong>{{.Data.Resources.Received}}</strong><small>{{.Data.Resources.ReceiveRate}} average</small></div>
+    <div><span>Bandwidth out</span><strong>{{.Data.Resources.Sent}}</strong><small>{{.Data.Resources.SendRate}} average</small></div>
+    <div><span>HTTP requests</span><strong>{{.Data.Resources.Requests}}</strong></div>
+    <div><span>Uptime</span><strong>{{.Data.Resources.Uptime}}</strong></div>
+  </div>
+</section>
+{{range .Data.Widgets}}<section class="panel dashboard-widget" data-widget="{{.ID}}"><h2>{{.Title}}</h2>{{.HTML}}</section>{{end}}
+<section class="panel"><h2>Extend this admin</h2><p>Application modules can register routes, dashboard widgets, user-form sections, and handler overrides through the platform API.</p></section>
+{{end}}

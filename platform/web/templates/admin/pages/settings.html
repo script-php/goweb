@@ -1,0 +1,33 @@
+{{define "admin-content"}}
+<form class="panel form" method="post" action="/admin/settings">
+  <input type="hidden" name="_csrf" value="{{.CSRFToken}}">
+  {{$s := .Data.Settings}}
+  <h2>Application</h2>
+  <label>Application name<input type="text" name="app.name" value="{{index $s "app.name"}}" required></label>
+  <label>Tagline<input type="text" name="app.tagline" value="{{index $s "app.tagline"}}"></label>
+  <label>Contact email<input type="email" name="contact.email" value="{{index $s "contact.email"}}"></label>
+  <label>Timezone<input type="text" name="app.timezone" value="{{index $s "app.timezone"}}"></label>
+  <label>Audit retention (days)<input type="number" min="1" max="3650" name="audit.retention_days" value="{{index $s "audit.retention_days"}}" required></label>
+  <h2>Email (SMTP)</h2>
+  <label class="checkbox"><input type="checkbox" name="mail.enabled" value="true" {{if eq (index $s "mail.enabled") "true"}}checked{{end}}> Enable outgoing email</label>
+  <label>SMTP host<input type="text" name="mail.host" value="{{index $s "mail.host"}}"></label>
+  <label>SMTP port<input type="number" min="1" max="65535" name="mail.port" value="{{index $s "mail.port"}}"></label>
+  <label>Encryption<select name="mail.encryption"><option value="starttls" {{if eq (index $s "mail.encryption") "starttls"}}selected{{end}}>STARTTLS</option><option value="tls" {{if eq (index $s "mail.encryption") "tls"}}selected{{end}}>TLS</option><option value="none" {{if eq (index $s "mail.encryption") "none"}}selected{{end}}>None</option></select></label>
+  <label>Username<input type="text" name="mail.username" value="{{index $s "mail.username"}}" autocomplete="off"></label>
+  <label>Password<input type="password" name="mail.password" value="" autocomplete="new-password" placeholder="{{if .Data.PasswordConfigured}}Configured — leave blank to keep{{else}}Not configured{{end}}"></label>
+  <label>From name<input type="text" name="mail.from_name" value="{{index $s "mail.from_name"}}"></label>
+  <label>From address<input type="email" name="mail.from_address" value="{{index $s "mail.from_address"}}"></label>
+  <label>Delivery history retention (days)<input type="number" min="1" max="3650" name="mail.retention_days" value="{{index $s "mail.retention_days"}}" required></label>
+  <h2>Account security</h2>
+  <label class="checkbox"><input type="checkbox" name="security.alerts" value="true" {{if eq (index $s "security.alerts") "true"}}checked{{end}}> Email alerts for new sign-ins and password changes</label>
+  <label class="checkbox"><input type="checkbox" name="security.two_factor_available" value="true" {{if eq (index $s "security.two_factor_available") "true"}}checked{{end}}> Allow users to enable email two-factor authentication</label>
+  <div class="actions"><button type="submit">Save settings</button></div>
+</form>
+<p class="hint">Runtime values saved here override the SMTP defaults from config.json. Restarting is not required.</p>
+<form class="panel form" method="post" action="/admin/settings/test-email">
+  <input type="hidden" name="_csrf" value="{{.CSRFToken}}">
+  <h2>Test email delivery</h2>
+  <label>Recipient<input type="email" name="recipient" value="{{.CurrentUser.Email}}" required></label>
+  <div class="actions"><button type="submit">Queue test email</button><a class="button secondary-button" href="/admin/emails">View delivery history</a></div>
+</form>
+{{end}}

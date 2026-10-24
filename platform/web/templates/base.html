@@ -1,0 +1,25 @@
+{{define "base"}}
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{{.Title}} · {{if index .Settings "app.name"}}{{index .Settings "app.name"}}{{else}}Go website{{end}}</title>
+  <link rel="stylesheet" href="/static/css/app.css?v={{.Version}}">
+  <link rel="stylesheet" href="/static/css/application.css?v={{.Version}}">
+</head>
+<body>
+  <header class="site-header">
+    <a class="brand" href="/">{{if index .Settings "app.name"}}{{index .Settings "app.name"}}{{else}}Go website{{end}}</a>
+    <nav aria-label="Main navigation">
+      {{range .Navigation}}{{if .Navigation}}<a href="{{.Path}}">{{.Label}}</a>{{end}}{{end}}
+      {{if .CurrentUser}}<a href="/account">{{if .CurrentUser.DisplayName}}{{.CurrentUser.DisplayName}}{{else}}Account{{end}}</a><form class="inline-form" method="post" action="/logout"><input type="hidden" name="_csrf" value="{{.CSRFToken}}"><button type="submit">Log out</button></form>{{else}}<a href="/login">Log in</a>{{end}}
+    </nav>
+  </header>
+  <main>
+    {{template "content" .}}
+  </main>
+  <footer>Version {{.Version}}</footer>
+</body>
+</html>
+{{end}}

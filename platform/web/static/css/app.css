@@ -1,0 +1,80 @@
+:root {
+  color-scheme: dark;
+  font-family: Inter, ui-sans-serif, system-ui, sans-serif;
+  background: #0d1117;
+  color: #e6edf3;
+}
+
+body {
+  width: min(58rem, calc(100% - 3rem));
+  min-height: 100vh;
+  margin: 0 auto;
+  display: grid;
+  grid-template-rows: auto 1fr auto;
+}
+
+.site-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 1.5rem 0;
+}
+
+.brand,
+nav a {
+  color: #e6edf3;
+  text-decoration: none;
+}
+
+nav {
+  display: flex;
+  gap: 1.25rem;
+}
+
+main {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+}
+
+.eyebrow,
+footer {
+  color: #7ee787;
+}
+
+nav { align-items: center; }
+.inline-form { display:inline; }
+.inline-form button { border:0; padding:0; background:transparent; color:#e6edf3; font:inherit; cursor:pointer; }
+.login-card { width:min(28rem,100%); margin:auto; }
+.login-card form { display:grid; gap:1rem; }
+.login-card label { display:grid; gap:.4rem; color:#b1bac4; }
+.login-card input { border:1px solid #30363d; border-radius:.45rem; padding:.8rem; background:#161b22; color:#e6edf3; font:inherit; }
+.login-card button { border:0; border-radius:.45rem; padding:.8rem 1rem; background:#238636; color:#fff; font:inherit; font-weight:650; cursor:pointer; }
+.form-error { color:#ff7b72; }
+.form-success { color:#7ee787; }
+.account-security { width:min(36rem,100%); padding:1.25rem; border:1px solid #30363d; border-radius:.75rem; background:#161b22; }
+.account-security form { margin-bottom:1rem; }
+.account-security button { border:0; border-radius:.45rem; padding:.7rem 1rem; background:#238636; color:#fff; font:inherit; font-weight:650; cursor:pointer; }
+
+h1 {
+  max-width: 50rem;
+  font-size: clamp(2.5rem, 8vw, 5rem);
+  line-height: 0.95;
+  letter-spacing: -0.05em;
+  margin: 0.4rem 0 1.5rem;
+}
+
+p {
+  max-width: 45rem;
+  color: #b1bac4;
+  font-size: 1.1rem;
+  line-height: 1.7;
+}
+
+code {
+  color: #e6edf3;
+}
+
+footer {
+  padding: 1.5rem 0;
+}

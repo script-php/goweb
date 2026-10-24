@@ -1,0 +1,2 @@
+{{define "notification"}}<div class="notification notification-{{.Kind}}" role="{{if eq .Kind "error"}}alert{{else}}status{{end}}"><span aria-hidden="true">{{if eq .Kind "success"}}✓{{else if eq .Kind "warning"}}!{{else}}×{{end}}</span><p>{{.Message}}</p></div>{{end}}
+{{define "empty-state"}}<div class="empty-state"><strong>{{.Title}}</strong>{{if .Message}}<p>{{.Message}}</p>{{end}}{{if .ActionPath}}<a class="button secondary-button" href="{{.ActionPath}}">{{.ActionLabel}}</a>{{end}}</div>{{end}}

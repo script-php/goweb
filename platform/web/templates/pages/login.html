@@ -1,0 +1,16 @@
+{{define "content"}}
+  <section class="login-card">
+    <p class="eyebrow">Administration</p>
+    <h1>Sign in</h1>
+	{{if eq .Data.Notice "password-reset"}}<p class="form-success">Password reset. You can now sign in.</p>{{end}}
+    {{if .Data.Error}}<p class="form-error" role="alert">{{.Data.Error}}</p>{{end}}
+    <form method="post" action="/login">
+      <input type="hidden" name="_csrf" value="{{.CSRFToken}}">
+      <input type="hidden" name="next" value="{{.Data.Next}}">
+      <label>Email<input type="email" name="email" autocomplete="username" required value="{{.Data.Email}}"></label>
+      <label>Password<input type="password" name="password" autocomplete="current-password" required></label>
+      <button type="submit">Sign in</button>
+    </form>
+	<p><a href="/forgot-password">Forgot your password?</a></p>
+  </section>
+{{end}}
