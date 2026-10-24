@@ -71,6 +71,10 @@ database matrix applies the actual embedded schemas and runs integration tests
 against MySQL 8.0, MySQL 8.4, MariaDB 10.6, and MariaDB 11.4. The matrix performs
 a real backup and restore, so it uses isolated disposable service containers.
 
+Release metadata is validated on every build. Branch and pull-request builds
+validate the version, changelog, and module path; exact tag-to-version matching
+is enforced only for tag builds or when `RELEASE_TAG` is explicitly supplied.
+
 ## Upgrade an importing application
 
 Review `CHANGELOG.md` and `UPGRADING.md`, then update and test on a branch:

@@ -4,6 +4,7 @@ This project follows semantic versioning for the exported `platform` API.
 
 ## 0.32.1
 
+- Fixed release validation incorrectly treating branch names as version tags.
 - Fixed CSRF validation for multipart admin forms, including user edits and avatar uploads.
 - Added multipart CSRF regression coverage.
 

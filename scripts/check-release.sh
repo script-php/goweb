@@ -15,7 +15,11 @@ if ! grep -Fqx "module script-php/goweb" go.mod; then
   exit 1
 fi
 
-tag=${RELEASE_TAG:-${GITHUB_REF_NAME:-}}
+tag=${RELEASE_TAG:-}
+if [ -z "$tag" ] && [ "${GITHUB_REF_TYPE:-}" = "tag" ]; then
+  tag=${GITHUB_REF_NAME:-}
+fi
+
 if [ -n "$tag" ] && [ "$tag" != "v$version" ]; then
   echo "release tag $tag does not match version.txt (expected v$version)" >&2
   exit 1
