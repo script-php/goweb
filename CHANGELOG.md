@@ -13,6 +13,9 @@ This project follows semantic versioning for the exported `platform` API.
 - Added an explicit external API contract gate and private security-reporting policy.
 - Updated Go supplementary modules to their newest reviewed Go 1.24-compatible releases.
 - Added vulnerability scanning as a CI and release gate plus dependency manifests in release archives.
+- Added environment-variable and file-backed database and SMTP secrets.
+- Serialized schema application with a per-database advisory migration lock.
+- Made readiness fail immediately when graceful shutdown begins.
 
 ## 0.32.1
 

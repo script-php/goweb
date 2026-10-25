@@ -23,15 +23,17 @@ type Config struct {
 }
 
 type Email struct {
-	Enabled     bool     `json:"enabled"`
-	Host        string   `json:"host"`
-	Port        int      `json:"port"`
-	Username    string   `json:"username"`
-	Password    string   `json:"password"`
-	FromName    string   `json:"from_name"`
-	FromAddress string   `json:"from_address"`
-	Encryption  string   `json:"encryption"`
-	Timeout     Duration `json:"timeout"`
+	Enabled      bool     `json:"enabled"`
+	Host         string   `json:"host"`
+	Port         int      `json:"port"`
+	Username     string   `json:"username"`
+	Password     string   `json:"password"`
+	PasswordEnv  string   `json:"password_env"`
+	PasswordFile string   `json:"password_file"`
+	FromName     string   `json:"from_name"`
+	FromAddress  string   `json:"from_address"`
+	Encryption   string   `json:"encryption"`
+	Timeout      Duration `json:"timeout"`
 }
 
 type Storage struct {
@@ -69,6 +71,8 @@ type Database struct {
 	Name             string            `json:"name"`
 	User             string            `json:"user"`
 	Password         string            `json:"password"`
+	PasswordEnv      string            `json:"password_env"`
+	PasswordFile     string            `json:"password_file"`
 	Parameters       map[string]string `json:"parameters"`
 	ConnectTimeout   Duration          `json:"connect_timeout"`
 	MigrationTimeout Duration          `json:"migration_timeout"`
@@ -124,10 +128,48 @@ func Load(requestedPath string) (Config, string, error) {
 	if err := ensureEndOfFile(decoder); err != nil {
 		return Config{}, path, fmt.Errorf("decode configuration %s: %w", path, err)
 	}
+	if err := resolveSecret(&cfg.Database.Password, cfg.Database.PasswordEnv, cfg.Database.PasswordFile, filepath.Dir(path), "database.password"); err != nil {
+		return Config{}, path, err
+	}
+	if err := resolveSecret(&cfg.Email.Password, cfg.Email.PasswordEnv, cfg.Email.PasswordFile, filepath.Dir(path), "email.password"); err != nil {
+		return Config{}, path, err
+	}
 	if err := cfg.validate(); err != nil {
 		return Config{}, path, fmt.Errorf("validate configuration %s: %w", path, err)
 	}
 	return cfg, path, nil
+}
+
+func resolveSecret(target *string, environmentName, fileName, baseDirectory, label string) error {
+	environmentName = strings.TrimSpace(environmentName)
+	fileName = strings.TrimSpace(fileName)
+	if environmentName != "" && fileName != "" {
+		return fmt.Errorf("%s_env and %s_file cannot both be configured", label, label)
+	}
+	if environmentName != "" {
+		value, exists := os.LookupEnv(environmentName)
+		if !exists || value == "" {
+			return fmt.Errorf("environment variable %s configured by %s_env is empty or missing", environmentName, label)
+		}
+		*target = value
+		return nil
+	}
+	if fileName == "" {
+		return nil
+	}
+	if !filepath.IsAbs(fileName) {
+		fileName = filepath.Join(baseDirectory, fileName)
+	}
+	contents, err := os.ReadFile(fileName)
+	if err != nil {
+		return fmt.Errorf("read %s_file %s: %w", label, fileName, err)
+	}
+	value := strings.TrimRight(string(contents), "\r\n")
+	if value == "" {
+		return fmt.Errorf("%s_file %s is empty", label, fileName)
+	}
+	*target = value
+	return nil
 }
 
 func ensureEndOfFile(decoder *json.Decoder) error {

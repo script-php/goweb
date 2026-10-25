@@ -15,8 +15,10 @@ application is installed in `/opt/website` and Nginx runs on the same host.
   restrict port 3306 to the application server's private IP and require TLS.
 - Permit inbound TCP 22, 80, and 443 only. Never expose the application's 9090
   listener or MySQL publicly.
-- Put secrets only in `release/config.json`, owned by the service user with mode
-  `0600`. Do not commit the production file.
+- Keep secrets out of version control. Prefer `database.password_env` and
+  `email.password_env` with variables supplied by the service manager, or use
+  `password_file` paths readable only by the service account. If secrets remain
+  inline in `release/config.json`, own it by the service user with mode `0600`.
 - Configure HTTPS, `server.production: true`, a correct `public_url`, trusted
   proxy addresses, and secure cookies.
 - Configure SMTP and test password recovery before launch.
@@ -76,9 +78,17 @@ Nginx and load balancers can therefore distinguish a running process from one
 that is ready for traffic. The application automatically resumes normal
 requests after connectivity returns; no restart is required.
 
+Readiness also changes to `503` immediately when graceful shutdown starts, so a
+load balancer can stop routing new work while existing requests drain.
+
 ## Rollback
 
 Keep the previous binary until health and browser checks pass. Code rollback is
 safe only when the previous release supports the database schema already
 applied. Otherwise restore the verified backup during a maintenance window.
 Never reverse a schema migration by editing `tables.hash`.
+
+Schema changes are protected by a database advisory lock, which serializes
+startup migrations when multiple instances are deployed together. Set
+`database.migration_timeout` high enough for the largest expected migration;
+startup fails safely if the lock cannot be obtained within that time.

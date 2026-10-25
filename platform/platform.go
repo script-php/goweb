@@ -162,17 +162,20 @@ type Options struct {
 }
 
 type Runtime struct {
-	Handler http.Handler
-	queue   *appmail.Queue
-	media   *appmedia.Service
-	jobs    *jobs.Manager
-	config  Config
-	Media   *Media
+	Handler   http.Handler
+	queue     *appmail.Queue
+	media     *appmedia.Service
+	jobs      *jobs.Manager
+	config    Config
+	Media     *Media
+	readiness *server.Readiness
 }
 
 func (runtime *Runtime) RunWorkers(ctx context.Context) { runtime.queue.Run(ctx) }
 
 func (runtime *Runtime) Run(ctx context.Context) error {
+	runtime.readiness.SetReady(true)
+	defer runtime.readiness.SetReady(false)
 	workerContext, stopWorkers := context.WithCancel(ctx)
 	defer stopWorkers()
 	go runtime.queue.Run(workerContext)
@@ -190,6 +193,7 @@ func (runtime *Runtime) Run(ctx context.Context) error {
 		return nil
 	case <-ctx.Done():
 	}
+	runtime.readiness.SetReady(false)
 	shutdownContext, cancel := context.WithTimeout(context.Background(), runtime.config.Server.ShutdownTimeout.Duration)
 	defer cancel()
 	if err := server.Shutdown(shutdownContext); err != nil {
@@ -285,11 +289,13 @@ func New(options Options) (*Runtime, error) {
 	if options.RegisterAdmin != nil || len(options.AdminOverrides) > 0 {
 		serverOptions = append(serverOptions, server.WithAdminModule(adminRegistration{register: options.RegisterAdmin, overrides: options.AdminOverrides}))
 	}
+	readiness := server.NewReadiness()
+	serverOptions = append(serverOptions, server.WithReadiness(readiness))
 	handler, err := server.New(files, options.DB, options.Version, serverOptions...)
 	if err != nil {
 		return nil, err
 	}
-	return &Runtime{Handler: handler, queue: queue, media: mediaService, jobs: jobManager, config: options.Config, Media: &Media{inner: mediaService}}, nil
+	return &Runtime{Handler: handler, queue: queue, media: mediaService, jobs: jobManager, config: options.Config, Media: &Media{inner: mediaService}, readiness: readiness}, nil
 }
 
 type publicRegistration func(*Pages) error

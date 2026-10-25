@@ -50,3 +50,25 @@ func TestApplicationSchemaUpgradeIntegration(t *testing.T) {
 		t.Fatalf("upgraded row = name %q description %#v", name, description)
 	}
 }
+
+func TestSchemaMigrationLockIntegration(t *testing.T) {
+	dsn := os.Getenv("WEBSITE_INTEGRATION_DSN")
+	if dsn == "" {
+		t.Skip("WEBSITE_INTEGRATION_DSN is not set")
+	}
+	db, err := sql.Open("mysql", dsn)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer db.Close()
+	release, err := acquireSchemaLock(context.Background(), db)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer release()
+	ctx, cancel := context.WithTimeout(context.Background(), 150*time.Millisecond)
+	defer cancel()
+	if err := ApplySchemas(ctx, db, Schemas{}); err == nil || !strings.Contains(err.Error(), "acquire database schema lock") {
+		t.Fatalf("competing migration error = %v", err)
+	}
+}

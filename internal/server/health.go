@@ -22,9 +22,9 @@ func healthLive(version string) http.HandlerFunc {
 	}
 }
 
-func healthReady(db databasePinger, version string) http.HandlerFunc {
+func healthReady(db databasePinger, version string, lifecycle *Readiness) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		ready := databaseReady(r.Context(), db)
+		ready := lifecycle.IsReady() && databaseReady(r.Context(), db)
 		status, state := http.StatusOK, "ready"
 		if !ready {
 			status, state = http.StatusServiceUnavailable, "unavailable"
@@ -33,9 +33,9 @@ func healthReady(db databasePinger, version string) http.HandlerFunc {
 	}
 }
 
-func healthSummary(db databasePinger, version string) http.HandlerFunc {
+func healthSummary(db databasePinger, version string, lifecycle *Readiness) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		ready := databaseReady(r.Context(), db)
+		ready := lifecycle.IsReady() && databaseReady(r.Context(), db)
 		status, state := http.StatusOK, "ok"
 		if !ready {
 			status, state = http.StatusServiceUnavailable, "degraded"

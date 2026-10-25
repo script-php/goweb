@@ -16,6 +16,8 @@
     "name": "website",
     "user": "website",
     "password": "change-me",
+    "password_env": "",
+    "password_file": "",
     "parameters": {
       "charset": "utf8mb4",
       "collation": "utf8mb4_unicode_ci"
@@ -46,6 +48,8 @@
     "port": 587,
     "username": "",
     "password": "",
+    "password_env": "",
+    "password_file": "",
     "from_name": "Go website",
     "from_address": "noreply@example.com",
     "encryption": "starttls",

@@ -225,6 +225,11 @@ by an application patch. Full replacement of protected platform tables is also
 rejected. `AllowUnsafePlatformChanges` is an explicit escape hatch for a
 carefully reviewed migration; normal projects should leave it false.
 
+Schema application is serialized per database with a MySQL/MariaDB advisory
+lock. This prevents two newly started instances from applying the same change
+concurrently. `database.migration_timeout` also bounds how long an instance
+waits to obtain that lock.
+
 ### Migration recovery
 
 Schema synchronization runs before the HTTP listener opens. If it fails, the
@@ -277,7 +282,8 @@ The starter exposes `/`, `/about`, and three operational health endpoints:
 - `/health/live` confirms that the Go HTTP process is responding without
   querying the database.
 - `/health/ready` checks database connectivity and returns `503` while the
-  application cannot serve normal traffic.
+  application cannot serve normal traffic, including as soon as graceful
+  shutdown begins.
 
 
 ## Add a page
@@ -379,13 +385,22 @@ Settings page can override them immediately at runtime:
   "host": "smtp.example.com",
   "port": 587,
   "username": "smtp-user",
-  "password": "smtp-password",
+  "password": "",
+  "password_env": "WEBSITE_SMTP_PASSWORD",
+  "password_file": "",
   "from_name": "My website",
   "from_address": "noreply@example.com",
   "encryption": "starttls",
   "timeout": "10s"
 }
 ```
+
+Database and SMTP passwords can be provided inline with `password`, through an
+environment variable named by `password_env`, or through a file named by
+`password_file`. Configure at most one external source for each password. An
+external source overrides the inline value; relative file paths are resolved
+from the directory containing `config.json`. Environment variables must be
+present and secret files must be non-empty, otherwise startup fails.
 
 Encryption accepts `starttls`, `tls` (implicit TLS), or `none`; use an encrypted
 mode in production. The admin form never displays a saved SMTP password. Leaving

@@ -75,10 +75,10 @@ func registerPublicRoutes(public *Public) error {
 	return nil
 }
 
-func registerInfrastructureRoutes(mux *http.ServeMux, db *sql.DB, staticFiles fs.FS, version string) {
-	mux.HandleFunc("GET /health", healthSummary(db, version))
+func registerInfrastructureRoutes(mux *http.ServeMux, db *sql.DB, staticFiles fs.FS, version string, readiness *Readiness) {
+	mux.HandleFunc("GET /health", healthSummary(db, version, readiness))
 	mux.HandleFunc("GET /health/live", healthLive(version))
-	mux.HandleFunc("GET /health/ready", healthReady(db, version))
+	mux.HandleFunc("GET /health/ready", healthReady(db, version, readiness))
 	staticHandler := http.StripPrefix("/static/", http.FileServer(http.FS(staticFiles)))
 	mux.Handle("GET /static/", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		// Static asset URLs include the application version. Revalidation here also

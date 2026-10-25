@@ -2,6 +2,7 @@ package platform
 
 import (
 	"context"
+	"crypto/sha256"
 	"database/sql"
 	"encoding/json"
 	"fmt"
@@ -11,6 +12,7 @@ import (
 	"reflect"
 	"strings"
 	"testing/fstest"
+	"time"
 
 	"github.com/script-php/tables"
 )
@@ -47,6 +49,11 @@ var protectedPlatformColumns = map[string][]string{
 // ApplySchemas combines the embedded platform tables with application tables
 // and explicit patches, then applies the final definitions through tables.
 func ApplySchemas(ctx context.Context, db *sql.DB, options Schemas) error {
+	release, err := acquireSchemaLock(ctx, db)
+	if err != nil {
+		return fmt.Errorf("acquire database schema lock: %w", err)
+	}
+	defer release()
 	files, err := schemaFiles(options)
 	if err != nil {
 		return fmt.Errorf("prepare database schemas: %w", err)
@@ -57,6 +64,42 @@ func ApplySchemas(ctx context.Context, db *sql.DB, options Schemas) error {
 	}
 	slog.Info("database schema ready", "skipped", result.Skipped, "changes", len(result.Queries))
 	return nil
+}
+
+func acquireSchemaLock(ctx context.Context, db *sql.DB) (func(), error) {
+	connection, err := db.Conn(ctx)
+	if err != nil {
+		return nil, err
+	}
+	fail := func(err error) (func(), error) {
+		connection.Close()
+		return nil, err
+	}
+	var databaseName string
+	if err := connection.QueryRowContext(ctx, "SELECT DATABASE()").Scan(&databaseName); err != nil {
+		return fail(err)
+	}
+	digest := sha256.Sum256([]byte(databaseName))
+	lockName := "goweb.schema." + fmt.Sprintf("%x", digest[:20])
+	timeoutSeconds := 60
+	if deadline, ok := ctx.Deadline(); ok {
+		remaining := time.Until(deadline)
+		if remaining <= 0 {
+			return fail(context.DeadlineExceeded)
+		}
+		timeoutSeconds = int((remaining + time.Second - 1) / time.Second)
+	}
+	var acquired int
+	if err := connection.QueryRowContext(ctx, "SELECT GET_LOCK(?, ?)", lockName, timeoutSeconds).Scan(&acquired); err != nil {
+		return fail(err)
+	}
+	if acquired != 1 {
+		return fail(fmt.Errorf("timed out waiting for %s", lockName))
+	}
+	return func() {
+		_, _ = connection.ExecContext(context.Background(), "SELECT RELEASE_LOCK(?)", lockName)
+		_ = connection.Close()
+	}, nil
 }
 
 // PlanSchemas returns the SQL that ApplySchemas would execute without changing

@@ -33,6 +33,7 @@ type options struct {
 	jobs            *jobs.Manager
 	backups         *admin.BackupOperations
 	rateLimits      []ratelimit.Policy
+	readiness       *Readiness
 }
 
 type PublicModule interface{ RegisterPublic(*Public) error }
@@ -85,11 +86,17 @@ func WithBackups(operations *admin.BackupOperations) Option {
 func WithRateLimits(policies []ratelimit.Policy) Option {
 	return func(configuration *options) { configuration.rateLimits = append([]ratelimit.Policy(nil), policies...) }
 }
+func WithReadiness(readiness *Readiness) Option {
+	return func(configuration *options) { configuration.readiness = readiness }
+}
 
 func New(webFiles fs.FS, db *sql.DB, version string, suppliedOptions ...Option) (http.Handler, error) {
 	configuration := options{adminFeatures: admin.DefaultFeatures()}
 	for _, option := range suppliedOptions {
 		option(&configuration)
+	}
+	if configuration.readiness == nil {
+		configuration.readiness = NewReadiness()
 	}
 	clientAddresses, err := clientip.New(configuration.trustedProxies)
 	if err != nil {
@@ -133,7 +140,7 @@ func New(webFiles fs.FS, db *sql.DB, version string, suppliedOptions ...Option) 
 	}
 	mux.Handle("/admin/", adminArea)
 	registerPrometheusMetrics(mux, resourceMetrics, db)
-	registerInfrastructureRoutes(mux, db, staticFiles, version)
+	registerInfrastructureRoutes(mux, db, staticFiles, version, configuration.readiness)
 	mux.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
 		renderer.RenderError(w, r, http.StatusNotFound)
 	})
