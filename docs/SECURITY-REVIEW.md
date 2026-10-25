@@ -23,6 +23,8 @@ software can never contain a vulnerability.
   not expose internal errors to browsers.
 - `govulncheck` reports no reachable vulnerability. Go supplementary modules
   are pinned to the newest reviewed versions that retain Go 1.24 support.
+- CI and tagged releases run a pinned vulnerability scanner. Release archives
+  include the complete Go module graph for later dependency auditing.
 
 ## Deployment responsibilities
 

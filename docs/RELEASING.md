@@ -38,9 +38,10 @@ require script-php/goweb v0.0.0
 replace script-php/goweb => ../goweb
 ```
 
-The repository currently has no Git remote, so its proxy origin and public URL
-must be configured after choosing the hosting repository. The module path does
-not need to change when the proxy maps it to that origin.
+The source repository is `https://github.com/script-php/goweb`. Because the
+canonical module path intentionally differs from that repository URL, consumers
+need the documented module proxy mapping; the module path itself does not
+change.
 
 ## Prepare a release
 
@@ -60,9 +61,10 @@ not need to change when the proxy maps it to that origin.
 Do not tag a dirty or older commit. The release workflow rejects a tag that
 does not exactly match `version.txt` or `CHANGELOG.md`.
 
-When the tag reaches GitHub, `.github/workflows/release.yml` runs all release
-checks, creates static Linux AMD64 and ARM64 archives, produces SHA-256 checksums,
-uploads the workflow artifact, and creates the GitHub release.
+When the tag reaches GitHub, `.github/workflows/release.yml` reruns tests, vet,
+vulnerability scanning, and archive validation. It creates static Linux AMD64
+and ARM64 archives, records the Go module graph in `DEPENDENCIES.txt`, produces
+SHA-256 checksums, uploads the workflow artifact, and creates the GitHub release.
 
 ## CI guarantees
 

@@ -20,6 +20,12 @@ jobs:
           cache: true
       - name: Validate tag and release metadata
         run: make release-check
+      - name: Test release commit
+        run: go test -race ./...
+      - name: Vet release commit
+        run: go vet ./...
+      - name: Scan release commit
+        run: go run golang.org/x/vuln/cmd/govulncheck@v1.9.0 ./...
       - name: Build Linux archives
         shell: bash
         run: |
@@ -32,6 +38,7 @@ jobs:
             GOOS=linux GOARCH="$arch" CGO_ENABLED=0 go build -trimpath -ldflags "-s -w" -o "/tmp/${package}/website" .
             cp config.example.json "/tmp/${package}/config.json"
             cp README.md CHANGELOG.md UPGRADING.md version.txt "/tmp/${package}/"
+            go list -m all > "/tmp/${package}/DEPENDENCIES.txt"
             cp -R deploy docs "/tmp/${package}/"
             mkdir -p "/tmp/${package}/uploads"
             tar -C /tmp -czf "dist/${package}.tar.gz" "$package"
