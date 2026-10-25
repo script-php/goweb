@@ -20,9 +20,9 @@ for arch in "$@"; do
   package="goweb-${version}-${target_os}-${arch}"
   root="$temporary/$package"
   archive="$dist/$package.zip"
-  mkdir -p "$root/uploads"
+  mkdir -p "$root"
   GOOS="$target_os" GOARCH="$arch" CGO_ENABLED=0 go build -trimpath -ldflags "-s -w" -o "$root/website" .
-  cp config.example.json "$root/config.json"
+  cp release/config.json "$root/config.json"
   cp README.md CHANGELOG.md UPGRADING.md version.txt "$root/"
   go list -m all > "$root/DEPENDENCIES.txt"
   cp -R deploy docs "$root/"

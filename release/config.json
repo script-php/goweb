@@ -16,6 +16,8 @@
     "name": "website",
     "user": "website",
     "password": "website",
+    "password_env": "",
+    "password_file": "",
     "parameters": {
       "charset": "utf8mb4",
       "collation": "utf8mb4_unicode_ci"
@@ -33,9 +35,23 @@
     "login_lockout": "15m"
   },
   "storage": {
+    "backend": "local",
     "uploads_directory": "uploads",
     "max_upload_bytes": 10485760,
-    "allowed_mime_types": ["image/jpeg", "image/png", "image/gif", "image/webp", "application/pdf", "text/plain"]
+    "allowed_mime_types": ["image/jpeg", "image/png", "image/gif", "image/webp", "application/pdf", "text/plain"],
+    "s3": {
+      "endpoint": "minio.example.com:9000",
+      "bucket": "website-media",
+      "region": "us-east-1",
+      "access_key": "",
+      "secret_key": "",
+      "secret_key_env": "",
+      "secret_key_file": "",
+      "use_tls": true,
+      "path_style": true,
+      "create_bucket": false,
+      "prefix": ""
+    }
   },
   "backup": {
     "retention_count": 14
@@ -46,6 +62,8 @@
     "port": 587,
     "username": "",
     "password": "",
+    "password_env": "",
+    "password_file": "",
     "from_name": "Go website",
     "from_address": "noreply@example.com",
     "encryption": "starttls",

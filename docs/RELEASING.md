@@ -57,10 +57,11 @@ change.
    ```
 
    This creates Linux AMD64 and ARM64 packages plus `SHA256SUMS` under `dist/`.
-   Each ZIP contains a clean deployable directory with the binary, example
-   `config.json`, empty `uploads/`, documentation, and dependency manifest. It
-   never copies the live `release/config.json`, uploads, backups, or
-   `tables.hash`. Use `RELEASE_ARCHES=amd64` to build only one architecture.
+   Each ZIP contains a clean deployable directory with the binary, the tracked
+   development `release/config.json`, documentation, and dependency manifest.
+   It excludes uploads, backups, and `tables.hash`. Review the development
+   configuration before every release and replace it with production values on
+   the server. Use `RELEASE_ARCHES=amd64` to build only one architecture.
 5. Commit the complete release and ensure the working tree is clean.
 6. Create an annotated tag on that commit:
 

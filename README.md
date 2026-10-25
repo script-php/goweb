@@ -98,9 +98,10 @@ This rebuilds the executable and starts it from inside `release/`. No root-level
 configuration is created. Edit `release/config.json` with your local database
 settings before running; subsequent builds do not overwrite it.
 
-To create clean GitHub-ready Linux ZIP packages without copying the live
-configuration or uploads, run `make release`. The validated AMD64 and ARM64
-archives and their `SHA256SUMS` file are written to `dist/`; see
+To create clean GitHub-ready Linux ZIP packages, run `make release`. Packages
+include the tracked development `release/config.json` but exclude uploads,
+backups, and runtime schema state. The validated AMD64 and ARM64 archives and
+their `SHA256SUMS` file are written to `dist/`; see
 [`docs/RELEASING.md`](docs/RELEASING.md) for tagging and publishing.
 
 The configuration path can also be explicit:

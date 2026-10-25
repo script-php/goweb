@@ -17,13 +17,13 @@ if [ -z "$root" ]; then
   echo "release archive has no root directory" >&2
   exit 1
 fi
-for required in website config.json version.txt DEPENDENCIES.txt README.md CHANGELOG.md UPGRADING.md deploy docs uploads; do
+for required in website config.json version.txt DEPENDENCIES.txt README.md CHANGELOG.md UPGRADING.md deploy docs; do
   if ! printf '%s\n' "$listing" | grep -Eq "^${root}/${required}(/|$)"; then
     echo "release archive is missing $required" >&2
     exit 1
   fi
 done
-if printf '%s\n' "$listing" | grep -Eq "^${root}/(backups|\.git)(/|$)"; then
+if printf '%s\n' "$listing" | grep -Eq "^${root}/(uploads|backups|\.git)(/|$)"; then
   echo "release archive contains private runtime or repository data" >&2
   exit 1
 fi
@@ -35,7 +35,7 @@ if [ "$archive_type" = zip ]; then
 else
   tar -xzf "$archive" -C "$temporary" "$root/config.json" "$root/version.txt"
 fi
-cmp config.example.json "$temporary/$root/config.json"
+cmp release/config.json "$temporary/$root/config.json"
 expected=$(tr -d '[:space:]' < version.txt)
 actual=$(tr -d '[:space:]' < "$temporary/$root/version.txt")
 if [ "$actual" != "$expected" ]; then
