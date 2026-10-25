@@ -21,6 +21,7 @@ func TestEveryBuiltinAdminRouteRequiresItsPermission(t *testing.T) {
 		"pages": "GET", "audit": "GET", "audit.export": "GET", "emails": "GET", "emails.retry": "POST", "settings": "GET", "settings.update": "POST", "settings.test-email": "POST",
 		"jobs": "GET", "jobs.run": "POST", "jobs.update": "POST",
 		"backups": "GET", "backups.create": "POST", "backups.download": "GET", "backups.verify": "POST",
+		"rate-limits": "GET", "rate-limits.clear": "POST",
 		"media": "GET", "media.upload": "POST", "media.bulk-delete": "POST", "media.edit": "GET", "media.update": "POST", "media.download": "GET", "media.delete": "POST", "media.cleanup": "GET", "media.cleanup.settings": "POST", "media.cleanup.run": "POST",
 	}
 	registered := area.catalog.Pages(catalog.AreaAdmin)
@@ -38,6 +39,8 @@ func TestEveryBuiltinAdminRouteRequiresItsPermission(t *testing.T) {
 			continue
 		}
 		requestPath := strings.ReplaceAll(page.Path, "{id}", "1")
+		requestPath = strings.ReplaceAll(requestPath, "{scope}", "http.example")
+		requestPath = strings.ReplaceAll(requestPath, "{hash}", strings.Repeat("a", 64))
 		request := httptest.NewRequest(method, requestPath, nil)
 		request = request.WithContext(auth.WithUser(request.Context(), &auth.User{ID: 1, Email: "limited@example.test"}))
 		response := httptest.NewRecorder()

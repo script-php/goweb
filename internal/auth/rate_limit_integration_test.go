@@ -111,4 +111,19 @@ func TestLoginRateLimitIntegration(t *testing.T) {
 			t.Fatalf("concurrent lockout did not persist: %v", err)
 		}
 	})
+
+	t.Run("separate instances share the lockout", func(t *testing.T) {
+		first := NewService(db, ServiceOptions{MaxLoginAttempts: 2, LoginLockout: time.Minute})
+		second := NewService(db, ServiceOptions{MaxLoginAttempts: 2, LoginLockout: time.Minute})
+		ip := "192.0.2.6"
+		if _, _, err := first.Login(ctx, email, "wrong password", ip, "instance-one"); !errors.Is(err, ErrInvalidCredentials) {
+			t.Fatalf("first instance failure = %v", err)
+		}
+		if _, _, err := second.Login(ctx, email, "wrong password", ip, "instance-two"); !errors.Is(err, ErrTooManyAttempts) {
+			t.Fatalf("second instance did not share counter: %v", err)
+		}
+		if _, _, err := first.Login(ctx, email, password, ip, "instance-one"); !errors.Is(err, ErrTooManyAttempts) {
+			t.Fatalf("first instance did not observe shared lockout: %v", err)
+		}
+	})
 }

@@ -361,8 +361,11 @@ Configure authentication in `config.json`:
 Use `false` only for local HTTP development. Production HTTPS deployments must
 set `secure_cookies` to `true`.
 
-Failed logins are throttled per email and client address. The defaults block
-the fifth consecutive failure for 15 minutes; both values are configurable.
+Failed logins are throttled per email and client address. Counters live in the
+database, so every running website instance observes the same lockout. The
+defaults block the fifth consecutive failure for 15 minutes; both values are
+configurable. Applications can also register database-shared HTTP policies with
+`platform.Options.RateLimits`; see `docs/PLATFORM.md`.
 
 ### SMTP email and account security
 
@@ -433,6 +436,7 @@ The reusable admin foundation lives in `internal/server/admin` and is mounted at
 - Permission-filtered navigation
 - Same-origin protection on modifying requests
 - Process RAM/CPU, HTTP traffic, request count, and uptime metrics
+- Shared rate-limit visibility and emergency unblock controls
 
 The required tables are embedded from `platform/database/`: `roles`,
 `permissions`, `user_roles`, `role_permissions`, and `settings`. The schema is

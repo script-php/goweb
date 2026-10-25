@@ -43,6 +43,8 @@ func (builtinModule) Register(admin *Admin) error {
 		{"POST /admin/backups", catalog.Page{ID: "backups.create", Label: "Create backup", Path: "/admin/backups", Permission: "admin.settings.manage"}, admin.backupCreate},
 		{"GET /admin/backups/{name}", catalog.Page{ID: "backups.download", Label: "Download backup", Path: "/admin/backups/{name}", Permission: "admin.settings.manage"}, admin.backupDownload},
 		{"POST /admin/backups/{name}/verify", catalog.Page{ID: "backups.verify", Label: "Verify backup", Path: "/admin/backups/{name}/verify", Permission: "admin.settings.manage"}, admin.backupVerify},
+		{"GET /admin/rate-limits", catalog.Page{ID: "rate-limits", Label: "Rate limits", Path: "/admin/rate-limits", Description: "Inspect and clear shared request limits", Permission: "admin.rate-limits.view", Navigation: true, Order: 59}, admin.rateLimits},
+		{"POST /admin/rate-limits/{scope}/{hash}/clear", catalog.Page{ID: "rate-limits.clear", Label: "Clear rate limit", Path: "/admin/rate-limits/{scope}/{hash}/clear", Permission: "admin.rate-limits.manage"}, admin.rateLimitClear},
 		{"GET /admin/media", catalog.Page{ID: "media", Label: "Media", Path: "/admin/media", Description: "Upload and manage application files", Permission: "admin.media.view", Navigation: true, Order: 57}, admin.mediaList},
 		{"POST /admin/media", catalog.Page{ID: "media.upload", Label: "Upload media", Path: "/admin/media", Permission: "admin.media.manage"}, admin.mediaUpload},
 		{"POST /admin/media/bulk-delete", catalog.Page{ID: "media.bulk-delete", Label: "Delete selected media", Path: "/admin/media/bulk-delete", Permission: "admin.media.manage"}, admin.mediaBulkDelete},
@@ -86,6 +88,8 @@ func (admin *Admin) featureEnabled(pageID string) bool {
 		return admin.features.Settings
 	case "backups", "backups.create", "backups.download", "backups.verify":
 		return admin.features.Settings && admin.backups != nil
+	case "rate-limits", "rate-limits.clear":
+		return admin.features.Settings
 	case "media", "media.upload", "media.bulk-delete", "media.edit", "media.update", "media.download", "media.delete", "media.cleanup", "media.cleanup.settings", "media.cleanup.run":
 		return admin.features.Media
 	case "settings", "settings.update", "settings.test-email":

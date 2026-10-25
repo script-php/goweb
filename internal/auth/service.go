@@ -10,11 +10,11 @@ import (
 	"fmt"
 	"net/http"
 	"strings"
-	"sync"
 	"time"
 
 	"golang.org/x/crypto/bcrypt"
 	appmail "script-php/goweb/internal/mail"
+	"script-php/goweb/internal/ratelimit"
 )
 
 const SessionCookieName = "website_session"
@@ -24,20 +24,13 @@ var ErrTooManyAttempts = errors.New("too many login attempts")
 var ErrTwoFactorRequired = errors.New("two-factor authentication required")
 var ErrInvalidToken = errors.New("invalid or expired token")
 
-type loginAttempt struct {
-	Failures     int
-	BlockedUntil time.Time
-	LastAttempt  time.Time
-}
-
 type Service struct {
 	db               *sql.DB
 	sessionLength    time.Duration
 	secureCookies    bool
 	maxLoginAttempts int
 	loginLockout     time.Duration
-	attemptsMu       sync.Mutex
-	attempts         map[string]loginAttempt
+	limits           *ratelimit.Store
 	mailer           appmail.Sender
 	publicURL        string
 	emailEnabled     bool
@@ -63,7 +56,7 @@ func NewService(db *sql.DB, options ServiceOptions) *Service {
 	if options.LoginLockout <= 0 {
 		options.LoginLockout = 15 * time.Minute
 	}
-	return &Service{db: db, sessionLength: options.SessionLength, secureCookies: options.SecureCookies, maxLoginAttempts: options.MaxLoginAttempts, loginLockout: options.LoginLockout, attempts: make(map[string]loginAttempt), mailer: options.Mailer, publicURL: strings.TrimRight(options.PublicURL, "/"), emailEnabled: options.EmailEnabled}
+	return &Service{db: db, sessionLength: options.SessionLength, secureCookies: options.SecureCookies, maxLoginAttempts: options.MaxLoginAttempts, loginLockout: options.LoginLockout, limits: ratelimit.New(db), mailer: options.Mailer, publicURL: strings.TrimRight(options.PublicURL, "/"), emailEnabled: options.EmailEnabled}
 }
 
 func (service *Service) SecureCookies() bool { return service.secureCookies }
@@ -97,18 +90,22 @@ func CheckPassword(hash, password string) error {
 func (service *Service) Login(ctx context.Context, email, password, ipAddress, userAgent string) (string, *User, error) {
 	email = strings.ToLower(strings.TrimSpace(email))
 	attemptKey := ipAddress + "|" + email
-	if service.loginBlocked(attemptKey, time.Now()) {
+	blocked, err := service.loginBlocked(ctx, attemptKey, time.Now())
+	if err != nil {
+		return "", nil, fmt.Errorf("check login rate limit: %w", err)
+	}
+	if blocked {
 		service.auditLogin(ctx, 0, email, "auth.login.blocked", ipAddress)
 		return "", nil, ErrTooManyAttempts
 	}
 	var id uint64
 	var hash string
 	var active, twoFactor bool
-	err := service.db.QueryRowContext(ctx, `SELECT id, COALESCE(password_hash, ''), active, two_factor_enabled FROM users WHERE email = ?`, email).Scan(&id, &hash, &active, &twoFactor)
+	err = service.db.QueryRowContext(ctx, `SELECT id, COALESCE(password_hash, ''), active, two_factor_enabled FROM users WHERE email = ?`, email).Scan(&id, &hash, &active, &twoFactor)
 	if errors.Is(err, sql.ErrNoRows) {
 		// Equalize some work for unknown accounts.
 		_ = bcrypt.CompareHashAndPassword([]byte("$2a$12$C6UzMDM.H6dfI/f/IKxGhuW8dQ4q8zAqYhY5Z4Z6iGEXUXcQx5f.m"), []byte(password))
-		loginErr := service.failedLogin(attemptKey, time.Now())
+		loginErr := service.failedLogin(ctx, attemptKey, time.Now())
 		service.auditLogin(ctx, 0, email, "auth.login.failed", ipAddress)
 		return "", nil, loginErr
 	}
@@ -116,11 +113,13 @@ func (service *Service) Login(ctx context.Context, email, password, ipAddress, u
 		return "", nil, err
 	}
 	if !active || CheckPassword(hash, password) != nil {
-		loginErr := service.failedLogin(attemptKey, time.Now())
+		loginErr := service.failedLogin(ctx, attemptKey, time.Now())
 		service.auditLogin(ctx, id, email, "auth.login.failed", ipAddress)
 		return "", nil, loginErr
 	}
-	service.clearLoginAttempts(attemptKey)
+	if err := service.clearLoginAttempts(ctx, attemptKey); err != nil {
+		return "", nil, fmt.Errorf("clear login rate limit: %w", err)
+	}
 	if twoFactor {
 		challenge, code, err := service.createCodeToken(ctx, id, "two_factor", 10*time.Minute)
 		if err != nil {
@@ -170,44 +169,24 @@ func (service *Service) auditLogin(ctx context.Context, userID uint64, email, ac
 		userID, limit(email, 255), action, email, limit(ipAddress, 45))
 }
 
-func (service *Service) loginBlocked(key string, now time.Time) bool {
-	service.attemptsMu.Lock()
-	defer service.attemptsMu.Unlock()
-	attempt, exists := service.attempts[key]
-	if !exists {
-		return false
-	}
-	if !attempt.BlockedUntil.IsZero() && now.Before(attempt.BlockedUntil) {
-		return true
-	}
-	if now.Sub(attempt.LastAttempt) > service.loginLockout {
-		delete(service.attempts, key)
-	}
-	return false
+func (service *Service) loginBlocked(ctx context.Context, key string, now time.Time) (bool, error) {
+	decision, err := service.limits.Check(ctx, "auth.login", key, now)
+	return !decision.Allowed, err
 }
 
-func (service *Service) failedLogin(key string, now time.Time) error {
-	service.attemptsMu.Lock()
-	defer service.attemptsMu.Unlock()
-	attempt := service.attempts[key]
-	if now.Sub(attempt.LastAttempt) > service.loginLockout {
-		attempt.Failures = 0
+func (service *Service) failedLogin(ctx context.Context, key string, now time.Time) error {
+	decision, err := service.limits.Hit(ctx, "auth.login", key, service.maxLoginAttempts, service.loginLockout, now)
+	if err != nil {
+		return fmt.Errorf("record login rate limit: %w", err)
 	}
-	attempt.Failures++
-	attempt.LastAttempt = now
-	if attempt.Failures >= service.maxLoginAttempts {
-		attempt.BlockedUntil = now.Add(service.loginLockout)
-		service.attempts[key] = attempt
+	if !decision.Allowed {
 		return ErrTooManyAttempts
 	}
-	service.attempts[key] = attempt
 	return ErrInvalidCredentials
 }
 
-func (service *Service) clearLoginAttempts(key string) {
-	service.attemptsMu.Lock()
-	delete(service.attempts, key)
-	service.attemptsMu.Unlock()
+func (service *Service) clearLoginAttempts(ctx context.Context, key string) error {
+	return service.limits.Reset(ctx, "auth.login", key)
 }
 
 func (service *Service) ResolveSession(ctx context.Context, token string) (*User, error) {

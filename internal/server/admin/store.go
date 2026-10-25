@@ -66,11 +66,54 @@ type EmailDelivery struct {
 	NextAttemptAt, SentAt                 sql.NullTime
 }
 
+type RateLimitEntry struct {
+	Scope                       string
+	KeyHash                     string
+	Hits                        int
+	LimitedCount                uint64
+	WindowStarted, UpdatedAt    time.Time
+	BlockedUntil, LastLimitedAt sql.NullTime
+}
+
 type Store struct {
 	db *sql.DB
 }
 
 func NewStore(db *sql.DB) *Store { return &Store{db: db} }
+
+func (store *Store) RateLimits(ctx context.Context, query string, limit int) ([]RateLimitEntry, error) {
+	query = strings.TrimSpace(query)
+	if limit < 1 || limit > 500 {
+		limit = 100
+	}
+	rows, err := store.db.QueryContext(ctx, `SELECT scope,key_hash,hits,window_started_at,blocked_until,limited_count,last_limited_at,updated_at
+		FROM rate_limits WHERE (?='' OR scope LIKE CONCAT('%',?,'%') OR key_hash LIKE CONCAT('%',?,'%'))
+		ORDER BY (blocked_until > UTC_TIMESTAMP()) DESC, updated_at DESC LIMIT ?`, query, query, query, limit)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var result []RateLimitEntry
+	for rows.Next() {
+		var item RateLimitEntry
+		if err := rows.Scan(&item.Scope, &item.KeyHash, &item.Hits, &item.WindowStarted, &item.BlockedUntil, &item.LimitedCount, &item.LastLimitedAt, &item.UpdatedAt); err != nil {
+			return nil, err
+		}
+		result = append(result, item)
+	}
+	return result, rows.Err()
+}
+
+func (store *Store) ClearRateLimit(ctx context.Context, scope, keyHash string) error {
+	result, err := store.db.ExecContext(ctx, `DELETE FROM rate_limits WHERE scope=? AND key_hash=?`, scope, keyHash)
+	if err != nil {
+		return err
+	}
+	if affected, _ := result.RowsAffected(); affected != 1 {
+		return sql.ErrNoRows
+	}
+	return nil
+}
 
 func (store *Store) EmailDeliveries(ctx context.Context, limit int) ([]EmailDelivery, error) {
 	if limit < 1 || limit > 200 {

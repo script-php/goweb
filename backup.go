@@ -2,6 +2,7 @@ package main
 
 import (
 	"archive/tar"
+	"bytes"
 	"compress/gzip"
 	"context"
 	"errors"
@@ -202,12 +203,12 @@ func dumpDatabase(database config.Database, outputPath string) error {
 	if err != nil {
 		return fmt.Errorf("find mysqldump or mariadb-dump: %w", err)
 	}
+	disableColumnStatistics := dumpSupportsColumnStatistics(dumper)
 	output, err := os.OpenFile(outputPath, os.O_WRONLY|os.O_CREATE|os.O_EXCL, 0o600)
 	if err != nil {
 		return err
 	}
-	command := exec.Command(dumper, "--host="+database.Host, "--port="+strconv.Itoa(database.Port), "--user="+database.User,
-		"--single-transaction", "--no-tablespaces", "--routines", "--triggers", "--events", "--default-character-set=utf8mb4", database.Name)
+	command := exec.Command(dumper, databaseDumpArguments(database, disableColumnStatistics)...)
 	command.Env = append(os.Environ(), "MYSQL_PWD="+database.Password)
 	command.Stdout, command.Stderr = output, os.Stderr
 	runErr, closeErr := command.Run(), output.Close()
@@ -215,6 +216,32 @@ func dumpDatabase(database config.Database, outputPath string) error {
 		return fmt.Errorf("run database backup: %w", runErr)
 	}
 	return closeErr
+}
+
+// Oracle's MySQL 8 mysqldump enables COLUMN_STATISTICS queries by default.
+// MariaDB does not expose that information_schema table, so disable the optional
+// metadata whenever the installed dump client supports the switch.
+func dumpSupportsColumnStatistics(dumper string) bool {
+	help, err := exec.Command(dumper, "--help").CombinedOutput()
+	return err == nil && bytes.Contains(help, []byte("column-statistics"))
+}
+
+func databaseDumpArguments(database config.Database, disableColumnStatistics bool) []string {
+	arguments := []string{
+		"--host=" + database.Host,
+		"--port=" + strconv.Itoa(database.Port),
+		"--user=" + database.User,
+		"--single-transaction",
+		"--no-tablespaces",
+		"--routines",
+		"--triggers",
+		"--events",
+		"--default-character-set=utf8mb4",
+	}
+	if disableColumnStatistics {
+		arguments = append(arguments, "--column-statistics=0")
+	}
+	return append(arguments, database.Name)
 }
 
 func writeUploads(writer *tar.Writer, root string) error {

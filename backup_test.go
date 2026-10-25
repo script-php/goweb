@@ -7,9 +7,29 @@ import (
 	"io"
 	"os"
 	"path/filepath"
+	"slices"
 	"testing"
 	"time"
+
+	config "script-php/goweb/platform/configuration"
 )
+
+func TestDatabaseDumpArgumentsDisableOptionalColumnStatistics(t *testing.T) {
+	database := config.Database{Host: "database", Port: 3307, User: "backup", Name: "goweb"}
+	arguments := databaseDumpArguments(database, true)
+	want := []string{
+		"--host=database", "--port=3307", "--user=backup", "--single-transaction",
+		"--no-tablespaces", "--routines", "--triggers", "--events",
+		"--default-character-set=utf8mb4", "--column-statistics=0", "goweb",
+	}
+	if !slices.Equal(arguments, want) {
+		t.Fatalf("databaseDumpArguments() = %q, want %q", arguments, want)
+	}
+	withoutStatistics := databaseDumpArguments(database, false)
+	if slices.Contains(withoutStatistics, "--column-statistics=0") {
+		t.Fatalf("unsupported column-statistics option included in %q", withoutStatistics)
+	}
+}
 
 func TestWriteUploadsIncludesFilesAndSkipsSymlinks(t *testing.T) {
 	root := t.TempDir()

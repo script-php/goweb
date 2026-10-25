@@ -2,6 +2,7 @@ package auth
 
 import (
 	"bytes"
+	"context"
 	"errors"
 	"mime/multipart"
 	"net/http"
@@ -63,16 +64,16 @@ func TestLoginAttemptsAreThrottledAndExpire(t *testing.T) {
 	service := NewService(nil, ServiceOptions{MaxLoginAttempts: 2, LoginLockout: time.Minute})
 	key := "127.0.0.1|person@example.com"
 	now := time.Now()
-	if err := service.failedLogin(key, now); !errors.Is(err, ErrInvalidCredentials) {
+	if err := service.failedLogin(context.Background(), key, now); !errors.Is(err, ErrInvalidCredentials) {
 		t.Fatalf("first failure = %v", err)
 	}
-	if err := service.failedLogin(key, now); !errors.Is(err, ErrTooManyAttempts) {
+	if err := service.failedLogin(context.Background(), key, now); !errors.Is(err, ErrTooManyAttempts) {
 		t.Fatalf("second failure = %v", err)
 	}
-	if !service.loginBlocked(key, now.Add(30*time.Second)) {
+	if blocked, err := service.loginBlocked(context.Background(), key, now.Add(30*time.Second)); err != nil || !blocked {
 		t.Fatal("login was not blocked")
 	}
-	if service.loginBlocked(key, now.Add(2*time.Minute)) {
+	if blocked, err := service.loginBlocked(context.Background(), key, now.Add(2*time.Minute)); err != nil || blocked {
 		t.Fatal("expired login block remained active")
 	}
 }

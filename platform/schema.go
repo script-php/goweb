@@ -41,6 +41,7 @@ var protectedPlatformColumns = map[string][]string{
 	"settings":         {"setting_key"},
 	"media":            {"id", "storage_key", "original_name", "mime_type", "size_bytes"},
 	"background_jobs":  {"job_id", "interval_seconds", "enabled"},
+	"rate_limits":      {"scope", "key_hash", "window_started_at"},
 }
 
 // ApplySchemas combines the embedded platform tables with application tables

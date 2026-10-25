@@ -10,12 +10,15 @@ import (
 	"fmt"
 	"html/template"
 	"net/http"
+	"strconv"
 	"time"
 
 	"script-php/goweb/internal/auth"
+	"script-php/goweb/internal/clientip"
 	"script-php/goweb/internal/jobs"
 	appmail "script-php/goweb/internal/mail"
 	appmedia "script-php/goweb/internal/media"
+	"script-php/goweb/internal/ratelimit"
 	"script-php/goweb/internal/server"
 	serveradmin "script-php/goweb/internal/server/admin"
 	"script-php/goweb/internal/server/catalog"
@@ -104,6 +107,7 @@ const (
 	AdminAudit         = "audit"
 	AdminEmail         = "emails"
 	AdminMedia         = "media"
+	AdminRateLimits    = "rate-limits"
 	AdminSettings      = "settings"
 )
 
@@ -116,6 +120,27 @@ type BackgroundJob struct {
 	Interval  time.Duration
 	Enabled   bool
 	Run       func(context.Context) error
+}
+
+// RateLimitPolicy applies a database-shared fixed-window limit to matching
+// requests. Match selects requests and Key identifies the caller or resource.
+type RateLimitPolicy struct {
+	ID     string
+	Limit  int
+	Window time.Duration
+	Match  func(*http.Request) bool
+	Key    func(*http.Request) string
+}
+
+// RateLimitByIP groups requests by the safely resolved client address.
+func RateLimitByIP(r *http.Request) string { return clientip.FromRequest(r) }
+
+// RateLimitByUser groups authenticated users by ID and falls back to client IP.
+func RateLimitByUser(r *http.Request) string {
+	if user := auth.CurrentUser(r.Context()); user != nil {
+		return "user:" + strconv.FormatUint(user.ID, 10)
+	}
+	return "ip:" + clientip.FromRequest(r)
 }
 
 type Options struct {
@@ -132,6 +157,7 @@ type Options struct {
 	MediaBackend    StorageBackend
 	MediaReferences []MediaReferenceRule
 	BackgroundJobs  []BackgroundJob
+	RateLimits      []RateLimitPolicy
 	Backups         *BackupOperations
 }
 
@@ -211,9 +237,17 @@ func New(options Options) (*Runtime, error) {
 	}
 	smtp := appmail.NewSMTP(options.DB, options.Config.Email)
 	queue := appmail.NewQueue(options.DB, smtp)
+	rateLimitStore := ratelimit.New(options.DB)
 	registeredJobs := []jobs.Job{
 		{ID: "platform.media_cleanup", Label: "Media cleanup", Interval: time.Hour, Enabled: true, Run: mediaService.RunConfiguredCleanup},
 		{ID: "platform.email_cleanup", Label: "Email history cleanup", Interval: 24 * time.Hour, Enabled: true, Run: queue.Cleanup},
+		{ID: "platform.rate_limit_cleanup", Label: "Rate-limit cleanup", Interval: 24 * time.Hour, Enabled: true, Run: func(ctx context.Context) error {
+			return rateLimitStore.Cleanup(ctx, time.Now().Add(-7*24*time.Hour))
+		}},
+	}
+	registeredRateLimits := make([]ratelimit.Policy, 0, len(options.RateLimits))
+	for _, policy := range options.RateLimits {
+		registeredRateLimits = append(registeredRateLimits, ratelimit.Policy(policy))
 	}
 	for _, job := range options.BackgroundJobs {
 		registeredJobs = append(registeredJobs, jobs.Job{ID: job.ID, Label: job.Label, Interval: job.Interval, Enabled: job.Enabled, Run: job.Run})
@@ -240,6 +274,7 @@ func New(options Options) (*Runtime, error) {
 		server.WithPublicOverrides(options.PublicOverrides),
 		server.WithMedia(mediaService),
 		server.WithJobs(jobManager),
+		server.WithRateLimits(registeredRateLimits),
 	}
 	if options.Backups != nil {
 		serverOptions = append(serverOptions, server.WithBackups(backupOperationsAdapter(options.Backups)))

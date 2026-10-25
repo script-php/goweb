@@ -24,6 +24,7 @@ func TestExternalModuleCanCompileAgainstPlatform(t *testing.T) {
 import (
 	"context"
 	"net/http"
+	"time"
 
 	"script-php/goweb/platform"
 	configuration "script-php/goweb/platform/configuration"
@@ -38,6 +39,7 @@ func admin(a *platform.Admin) error {
 }
 
 var _ = platform.Options{Config: configuration.Config{}, RegisterPages: pages, RegisterAdmin: admin}
+var _ = platform.RateLimitPolicy{ID: "example", Limit: 10, Window: time.Minute, Match: func(r *http.Request) bool { return r.URL.Path == "/example" }, Key: platform.RateLimitByIP}
 var _ func(*platform.Runtime, context.Context) error = (*platform.Runtime).Run
 var _ *platform.Media
 

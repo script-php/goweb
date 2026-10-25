@@ -1,0 +1,13 @@
+{{define "admin-content"}}
+<p class="hint">Shared counters used by login protection and application request policies. Caller keys are stored as one-way hashes.</p>
+<form class="filter-form" method="get" action="/admin/rate-limits">
+  <label><span>Search</span><input type="search" name="q" value="{{.Data.Query}}" placeholder="Policy or key hash"></label>
+  <button type="submit">Filter</button>{{if .Data.Query}}<a href="/admin/rate-limits">Clear</a>{{end}}
+</form>
+<div class="panel table-wrap"><table><thead><tr><th>Policy</th><th>Caller key</th><th>Status</th><th>Hits</th><th>Violations</th><th>Last violation</th><th>Blocked until</th><th>Updated</th><th>Action</th></tr></thead><tbody>
+{{range .Data.Entries}}<tr>
+  <td data-label="Policy"><code>{{.Scope}}</code></td><td data-label="Caller key" title="{{.KeyHash}}"><code>{{.ShortKey}}</code></td><td data-label="Status"><span class="status {{if .Active}}status-disabled{{else}}status-active{{end}}">{{.Status}}</span></td><td data-label="Hits">{{.Hits}}</td><td data-label="Violations">{{.LimitedCount}}</td><td data-label="Last violation">{{.LastLimited}}</td><td data-label="Blocked until">{{.BlockedUntil}}</td><td data-label="Updated">{{.Updated}}</td>
+  <td data-label="Action" class="table-action"><form method="post" action="/admin/rate-limits/{{.Scope}}/{{.KeyHash}}/clear" data-confirm="Clear this rate-limit counter? The caller will be able to try again immediately."><input type="hidden" name="_csrf" value="{{$.CSRFToken}}"><button class="danger-button" type="submit">Clear</button></form></td>
+</tr>{{else}}<tr class="empty-row"><td colspan="9">{{template "empty-state" (dict "Title" "No rate-limit counters" "Message" "Counters appear after protected login or application requests.")}}</td></tr>{{end}}
+</tbody></table></div>
+{{end}}

@@ -82,7 +82,7 @@
 - [x] Add bidirectional media cleanup with registered reference rules, previews, and scheduling.
 - [x] Add scheduled/background job registration for application modules.
 - [x] Export Prometheus metrics. Optional distributed tracing remains a post-1.0 extension.
-- [ ] Support shared rate-limit storage for multi-instance deployments.
+- [x] Support shared rate-limit storage for multi-instance deployments.
 - [x] Build a reference application entirely through the public platform API.
 - [x] Define the platform 1.0 API freeze and deprecation policy.
 

@@ -275,6 +275,31 @@ The Jobs admin page controls enablement and intervals, runs jobs manually, and
 shows duration, next run, errors, and success/failure totals. A job cannot
 overlap another run of itself.
 
+## Register shared rate limits
+
+Applications can protect APIs and expensive actions with fixed-window limits
+stored in the shared database. Every website instance behind a load balancer
+observes the same counter:
+
+```go
+RateLimits: []platform.RateLimitPolicy{{
+    ID:     "contact-submit",
+    Limit:  5,
+    Window: time.Minute,
+    Match: func(r *http.Request) bool {
+        return r.Method == http.MethodPost && r.URL.Path == "/contact"
+    },
+    Key: platform.RateLimitByIP,
+}},
+```
+
+`RateLimitByIP` uses the trusted-proxy-aware client address. Use
+`RateLimitByUser` to group authenticated requests by user ID while falling back
+to the client address for anonymous requests, or provide a custom key function.
+An empty custom key skips that policy. Rejected requests receive `429 Too Many
+Requests` with a `Retry-After` header. Expired counters are removed by the
+platform's daily rate-limit cleanup job.
+
 Prometheus-compatible operational metrics are exposed at `/metrics`, including
 process, HTTP traffic, database-pool, media-storage, and job-failure metrics.
 

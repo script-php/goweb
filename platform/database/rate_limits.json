@@ -1,0 +1,18 @@
+{
+  "name": "rate_limits",
+  "columns": [
+    {"name": "scope", "type": "VARCHAR(120)"},
+    {"name": "key_hash", "type": "CHAR(64)"},
+    {"name": "hits", "type": "INT UNSIGNED", "default": 0},
+    {"name": "window_started_at", "type": "DATETIME(6)"},
+    {"name": "blocked_until", "type": "DATETIME(6)", "nullable": true},
+    {"name": "limited_count", "type": "BIGINT UNSIGNED", "default": 0},
+    {"name": "last_limited_at", "type": "DATETIME(6)", "nullable": true},
+    {"name": "updated_at", "type": "TIMESTAMP", "default_expression": "CURRENT_TIMESTAMP", "on_update": "CURRENT_TIMESTAMP"}
+  ],
+  "primary_key": ["scope", "key_hash"],
+  "indexes": [
+    {"name": "idx_rate_limits_updated", "columns": ["updated_at"]},
+    {"name": "idx_rate_limits_blocked", "columns": ["blocked_until"]}
+  ]
+}

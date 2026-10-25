@@ -12,6 +12,7 @@ import (
 	"script-php/goweb/internal/jobs"
 	appmedia "script-php/goweb/internal/media"
 	"script-php/goweb/internal/metrics"
+	"script-php/goweb/internal/ratelimit"
 	"script-php/goweb/internal/server/admin"
 	"script-php/goweb/internal/server/catalog"
 	"script-php/goweb/internal/server/pages"
@@ -31,6 +32,7 @@ type options struct {
 	media           *appmedia.Service
 	jobs            *jobs.Manager
 	backups         *admin.BackupOperations
+	rateLimits      []ratelimit.Policy
 }
 
 type PublicModule interface{ RegisterPublic(*Public) error }
@@ -80,6 +82,9 @@ func WithJobs(manager *jobs.Manager) Option {
 func WithBackups(operations *admin.BackupOperations) Option {
 	return func(configuration *options) { configuration.backups = operations }
 }
+func WithRateLimits(policies []ratelimit.Policy) Option {
+	return func(configuration *options) { configuration.rateLimits = append([]ratelimit.Policy(nil), policies...) }
+}
 
 func New(webFiles fs.FS, db *sql.DB, version string, suppliedOptions ...Option) (http.Handler, error) {
 	configuration := options{adminFeatures: admin.DefaultFeatures()}
@@ -88,6 +93,9 @@ func New(webFiles fs.FS, db *sql.DB, version string, suppliedOptions ...Option) 
 	}
 	clientAddresses, err := clientip.New(configuration.trustedProxies)
 	if err != nil {
+		return nil, err
+	}
+	if err := ratelimit.ValidatePolicies(configuration.rateLimits); err != nil {
 		return nil, err
 	}
 	pageCatalog := catalog.New()
@@ -141,6 +149,9 @@ func New(webFiles fs.FS, db *sql.DB, version string, suppliedOptions ...Option) 
 	handler = auth.ProtectCSRFWithMaxBytes(secureCookies, maxRequestBytes, handler)
 	handler = recoverPanics(handler)
 	handler = requestLogging(handler)
+	if len(configuration.rateLimits) > 0 {
+		handler = ratelimit.New(db).Middleware(configuration.rateLimits, auth.RespondError, handler)
+	}
 	if configuration.sessionResolver != nil {
 		handler = auth.RequirePasswordChange(handler)
 		handler = auth.Authenticate(auth.SessionCookieName, configuration.sessionResolver, handler)

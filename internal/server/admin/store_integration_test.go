@@ -69,4 +69,21 @@ func TestUserRolePermissionStoreIntegration(t *testing.T) {
 	if count, err := store.RevokeUserSessions(ctx, userID); err != nil || count != 0 {
 		t.Fatalf("RevokeUserSessions() = %d, %v", count, err)
 	}
+
+	rateScope := "integration." + strings.ReplaceAll(suffix, ".", "")
+	rateHash := strings.Repeat("a", 64)
+	if _, err := db.ExecContext(ctx, `INSERT INTO rate_limits (scope,key_hash,hits,window_started_at,blocked_until,limited_count,last_limited_at) VALUES (?,?,3,UTC_TIMESTAMP(),DATE_ADD(UTC_TIMESTAMP(), INTERVAL 1 MINUTE),1,UTC_TIMESTAMP())`, rateScope, rateHash); err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _, _ = db.Exec("DELETE FROM rate_limits WHERE scope=? AND key_hash=?", rateScope, rateHash) })
+	limits, err := store.RateLimits(ctx, rateScope, 10)
+	if err != nil || len(limits) != 1 || limits[0].Hits != 3 || limits[0].LimitedCount != 1 {
+		t.Fatalf("RateLimits() = %#v, %v", limits, err)
+	}
+	if err := store.ClearRateLimit(ctx, rateScope, rateHash); err != nil {
+		t.Fatal(err)
+	}
+	if limits, err = store.RateLimits(ctx, rateScope, 10); err != nil || len(limits) != 0 {
+		t.Fatalf("cleared RateLimits() = %#v, %v", limits, err)
+	}
 }
