@@ -42,7 +42,7 @@ var protectedPlatformColumns = map[string][]string{
 	"role_permissions": {"role_id", "permission_id"},
 	"settings":         {"setting_key"},
 	"media":            {"id", "storage_key", "original_name", "mime_type", "size_bytes"},
-	"background_jobs":  {"job_id", "interval_seconds", "enabled"},
+	"background_jobs":  {"job_id", "interval_seconds", "enabled", "lease_token", "lease_expires_at"},
 	"rate_limits":      {"scope", "key_hash", "window_started_at"},
 }
 

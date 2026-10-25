@@ -12,6 +12,8 @@ software can never contain a vulnerability.
   avatar and media forms have regression coverage.
 - Login and application rate limits use atomic shared-database counters. Trusted
   proxy configuration controls which forwarded client addresses are accepted.
+- Periodic jobs use renewable database leases to prevent duplicate execution
+  when multiple application instances share a database.
 - Uploads enforce size and MIME allowlists, randomized storage keys, safe path
   handling, and explicit media-reference cleanup rules.
 - Backup extraction rejects absolute paths, traversal, links, and unsupported

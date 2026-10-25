@@ -85,6 +85,7 @@
 - [x] Support shared rate-limit storage for multi-instance deployments.
 - [x] Build a reference application entirely through the public platform API.
 - [x] Define the platform 1.0 API freeze and deprecation policy.
+- [x] Prevent duplicate background-job execution across multiple instances with renewable database leases.
 
 ## Completed foundation
 

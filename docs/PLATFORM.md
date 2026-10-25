@@ -291,8 +291,11 @@ BackgroundJobs: []platform.BackgroundJob{{
 ```
 
 The Jobs admin page controls enablement and intervals, runs jobs manually, and
-shows duration, next run, errors, and success/failure totals. A job cannot
-overlap another run of itself.
+shows duration, next run, errors, and success/failure totals. A database-backed
+lease prevents the same job from overlapping across goroutines, processes, or
+servers sharing the database. Active jobs renew their leases automatically;
+after a process crash, another instance can recover the job when its lease
+expires.
 
 ## Register shared rate limits
 

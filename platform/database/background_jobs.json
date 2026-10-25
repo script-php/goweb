@@ -13,8 +13,13 @@
     {"name": "run_count", "type": "BIGINT UNSIGNED", "default": 0},
     {"name": "failure_count", "type": "BIGINT UNSIGNED", "default": 0},
     {"name": "next_run_at", "type": "DATETIME", "nullable": true},
+    {"name": "lease_token", "type": "VARCHAR(64)", "nullable": true},
+    {"name": "lease_expires_at", "type": "DATETIME", "nullable": true},
     {"name": "updated_at", "type": "TIMESTAMP", "default_expression": "CURRENT_TIMESTAMP", "on_update": "CURRENT_TIMESTAMP"}
   ],
   "primary_key": ["job_id"],
-  "indexes": [{"name": "idx_background_jobs_due", "columns": ["enabled", "next_run_at"]}]
+  "indexes": [
+    {"name": "idx_background_jobs_due", "columns": ["enabled", "next_run_at"]},
+    {"name": "idx_background_jobs_lease", "columns": ["lease_expires_at"]}
+  ]
 }
