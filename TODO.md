@@ -86,6 +86,7 @@
 - [x] Build a reference application entirely through the public platform API.
 - [x] Define the platform 1.0 API freeze and deprecation policy.
 - [x] Prevent duplicate background-job execution across multiple instances with renewable database leases.
+- [x] Add built-in S3-compatible media storage configurable from config and admin without losing access to existing local objects.
 
 ## Completed foundation
 

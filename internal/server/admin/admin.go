@@ -29,19 +29,20 @@ type Module interface {
 }
 
 type Admin struct {
-	mux           *http.ServeMux
-	store         *Store
-	catalog       *catalog.Catalog
-	renderer      *renderer
-	metrics       *metrics.Collector
-	emailDefaults config.Email
-	media         *appmedia.Service
-	jobs          *jobs.Manager
-	backups       *BackupOperations
-	overrides     map[string]http.Handler
-	widgets       []DashboardWidget
-	userSections  []UserFormSection
-	features      Features
+	mux             *http.ServeMux
+	store           *Store
+	catalog         *catalog.Catalog
+	renderer        *renderer
+	metrics         *metrics.Collector
+	emailDefaults   config.Email
+	storageDefaults config.Storage
+	media           *appmedia.Service
+	jobs            *jobs.Manager
+	backups         *BackupOperations
+	overrides       map[string]http.Handler
+	widgets         []DashboardWidget
+	userSections    []UserFormSection
+	features        Features
 }
 
 type Features struct{ Dashboard, Users, Roles, Pages, Audit, Email, Media, Settings bool }
@@ -59,23 +60,24 @@ type UserFormSection struct {
 	Save      func(*http.Request, uint64) error
 }
 
-func New(db *sql.DB, webFiles fs.FS, version string, pageCatalog *catalog.Catalog, resourceMetrics *metrics.Collector, emailDefaults config.Email, mediaService *appmedia.Service, jobManager *jobs.Manager, backups *BackupOperations, features Features, modules ...Module) (*Admin, error) {
+func New(db *sql.DB, webFiles fs.FS, version string, pageCatalog *catalog.Catalog, resourceMetrics *metrics.Collector, emailDefaults config.Email, storageDefaults config.Storage, mediaService *appmedia.Service, jobManager *jobs.Manager, backups *BackupOperations, features Features, modules ...Module) (*Admin, error) {
 	renderer, err := newRenderer(webFiles, version, pageCatalog)
 	if err != nil {
 		return nil, err
 	}
 	admin := &Admin{
-		mux:           http.NewServeMux(),
-		store:         NewStore(db),
-		catalog:       pageCatalog,
-		renderer:      renderer,
-		metrics:       resourceMetrics,
-		emailDefaults: emailDefaults,
-		media:         mediaService,
-		jobs:          jobManager,
-		backups:       backups,
-		overrides:     make(map[string]http.Handler),
-		features:      features,
+		mux:             http.NewServeMux(),
+		store:           NewStore(db),
+		catalog:         pageCatalog,
+		renderer:        renderer,
+		metrics:         resourceMetrics,
+		emailDefaults:   emailDefaults,
+		storageDefaults: storageDefaults,
+		media:           mediaService,
+		jobs:            jobManager,
+		backups:         backups,
+		overrides:       make(map[string]http.Handler),
+		features:        features,
 	}
 	// Application modules register extension points and overrides before the
 	// built-in routes are finalized.

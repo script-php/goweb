@@ -47,6 +47,10 @@ sudo ufw enable
    page through HTTPS.
 10. Inspect `journalctl -u website --since '-10 minutes'` and Nginx errors.
 
+The built-in archive contains local uploads only. When S3 storage is enabled,
+protect the bucket separately with MinIO/S3 versioning, replication, or your
+provider's backup facility, and test object recovery alongside database restore.
+
 Run `systemd-analyze security website.service` after registration. Some findings
 are expected for a network service, but investigate regressions when changing
 the unit.

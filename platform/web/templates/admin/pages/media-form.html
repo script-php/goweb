@@ -3,7 +3,7 @@
   <section class="panel media-edit-preview">
     <a class="media-preview" href="/admin/media/{{.Data.File.ID}}" target="_blank" rel="noopener">{{if hasPrefix .Data.File.MIMEType "image/"}}<img src="/admin/media/{{.Data.File.ID}}" alt="">{{else}}<span>{{.Data.File.MIMEType}}</span>{{end}}</a>
     <h2>{{.Data.File.OriginalName}}</h2>
-    <dl class="media-metadata"><div><dt>Type</dt><dd>{{.Data.File.MIMEType}}</dd></div><div><dt>Size</dt><dd>{{.Data.File.Size}} bytes</dd></div><div><dt>Storage path</dt><dd><code>{{.Data.File.StorageKey}}</code></dd></div><div><dt>Uploaded</dt><dd>{{.Data.File.CreatedAt.Format "2006-01-02 15:04"}}</dd></div></dl>
+    <dl class="media-metadata"><div><dt>Type</dt><dd>{{.Data.File.MIMEType}}</dd></div><div><dt>Size</dt><dd>{{.Data.File.Size}} bytes</dd></div><div><dt>Backend</dt><dd>{{.Data.File.StorageBackend}}</dd></div><div><dt>Storage path</dt><dd><code>{{.Data.File.StorageKey}}</code></dd></div><div><dt>Uploaded</dt><dd>{{.Data.File.CreatedAt.Format "2006-01-02 15:04"}}</dd></div></dl>
   </section>
   <form class="panel form" method="post" action="/admin/media/{{.Data.File.ID}}">
     <input type="hidden" name="_csrf" value="{{.CSRFToken}}">

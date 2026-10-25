@@ -76,9 +76,11 @@ Restore imports `database.sql`, preserves current uploads in a timestamped
 `.before-restore-*` directory, and activates the archived uploads. Test this
 process against a non-production database before depending on it.
 
-The platform media service stores validated uploads in this same uploads
-directory, records ownership and application attachments in the database, and
-provides a permission-protected admin media library. Applications access it
+The platform media service stores validated uploads locally or in built-in
+S3-compatible storage (including MinIO), records the owning backend, ownership,
+and application attachments in the database, and provides a
+permission-protected admin media library. Storage can be changed live from
+Admin → Settings without hiding existing objects. Applications access it
 through `runtime.Media`; configuration and examples are in
 [`docs/PLATFORM.md`](docs/PLATFORM.md#upload-and-attach-media).
 

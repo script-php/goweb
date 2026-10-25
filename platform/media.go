@@ -56,13 +56,14 @@ func (backend listingStorageBackend) Objects(ctx context.Context) ([]appmedia.Ob
 }
 
 type MediaFile struct {
-	ID                                 uint64
-	StorageKey, OriginalName, MIMEType string
-	Size                               int64
-	OwnerUserID                        uint64
-	Purpose                            string
-	EntityType, EntityID               string
-	CreatedAt                          time.Time
+	ID                         uint64
+	StorageBackend, StorageKey string
+	OriginalName, MIMEType     string
+	Size                       int64
+	OwnerUserID                uint64
+	Purpose                    string
+	EntityType, EntityID       string
+	CreatedAt                  time.Time
 }
 
 type MediaOptions struct {
@@ -134,5 +135,5 @@ func (media *Media) Cleanup(ctx context.Context, options MediaCleanupOptions) (M
 }
 
 func publicMediaFile(file appmedia.File) MediaFile {
-	return MediaFile{ID: file.ID, StorageKey: file.StorageKey, OriginalName: file.OriginalName, MIMEType: file.MIMEType, Size: file.Size, OwnerUserID: file.OwnerUserID, Purpose: file.Purpose, EntityType: file.EntityType, EntityID: file.EntityID, CreatedAt: file.CreatedAt}
+	return MediaFile{ID: file.ID, StorageBackend: file.StorageBackend, StorageKey: file.StorageKey, OriginalName: file.OriginalName, MIMEType: file.MIMEType, Size: file.Size, OwnerUserID: file.OwnerUserID, Purpose: file.Purpose, EntityType: file.EntityType, EntityID: file.EntityID, CreatedAt: file.CreatedAt}
 }

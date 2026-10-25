@@ -18,12 +18,24 @@
   <label>From name<input type="text" name="mail.from_name" value="{{index $s "mail.from_name"}}"></label>
   <label>From address<input type="email" name="mail.from_address" value="{{index $s "mail.from_address"}}"></label>
   <label>Delivery history retention (days)<input type="number" min="1" max="3650" name="mail.retention_days" value="{{index $s "mail.retention_days"}}" required></label>
+  <h2>Media storage</h2>
+  <label>Backend<select name="storage.backend"><option value="local" {{if eq (index $s "storage.backend") "local"}}selected{{end}}>Local filesystem</option><option value="s3" {{if eq (index $s "storage.backend") "s3"}}selected{{end}}>S3 compatible / MinIO</option></select></label>
+  <p class="hint">The selected backend applies to new uploads. Existing files remain attached to the backend where they were uploaded.</p>
+  <label>S3 endpoint<input type="text" name="storage.s3.endpoint" value="{{index $s "storage.s3.endpoint"}}" placeholder="minio.example.com:9000"></label>
+  <label>Bucket<input type="text" name="storage.s3.bucket" value="{{index $s "storage.s3.bucket"}}"></label>
+  <label>Region<input type="text" name="storage.s3.region" value="{{index $s "storage.s3.region"}}" placeholder="us-east-1"></label>
+  <label>Access key<input type="text" name="storage.s3.access_key" value="{{index $s "storage.s3.access_key"}}" autocomplete="off"></label>
+  <label>Secret key<input type="password" name="storage.s3.secret_key" value="" autocomplete="new-password" placeholder="{{if .Data.S3SecretConfigured}}Configured — leave blank to keep{{else}}Not configured{{end}}"></label>
+  <label>Object prefix<input type="text" name="storage.s3.prefix" value="{{index $s "storage.s3.prefix"}}" placeholder="optional/site-name"></label>
+  <label class="checkbox"><input type="checkbox" name="storage.s3.use_tls" value="true" {{if eq (index $s "storage.s3.use_tls") "true"}}checked{{end}}> Use HTTPS/TLS</label>
+  <label class="checkbox"><input type="checkbox" name="storage.s3.path_style" value="true" {{if eq (index $s "storage.s3.path_style") "true"}}checked{{end}}> Use path-style bucket URLs (recommended for MinIO)</label>
+  <label class="checkbox"><input type="checkbox" name="storage.s3.create_bucket" value="true" {{if eq (index $s "storage.s3.create_bucket") "true"}}checked{{end}}> Create the bucket if it does not exist</label>
   <h2>Account security</h2>
   <label class="checkbox"><input type="checkbox" name="security.alerts" value="true" {{if eq (index $s "security.alerts") "true"}}checked{{end}}> Email alerts for new sign-ins and password changes</label>
   <label class="checkbox"><input type="checkbox" name="security.two_factor_available" value="true" {{if eq (index $s "security.two_factor_available") "true"}}checked{{end}}> Allow users to enable email two-factor authentication</label>
   <div class="actions"><button type="submit">Save settings</button></div>
 </form>
-<p class="hint">Runtime values saved here override the SMTP defaults from config.json. Restarting is not required.</p>
+<p class="hint">Runtime values saved here override SMTP and storage defaults from config.json. Restarting is not required.</p>
 <form class="panel form" method="post" action="/admin/settings/test-email">
   <input type="hidden" name="_csrf" value="{{.CSRFToken}}">
   <h2>Test email delivery</h2>

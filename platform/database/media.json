@@ -2,6 +2,7 @@
   "name": "media",
   "columns": [
     {"name": "id", "type": "BIGINT UNSIGNED", "auto_increment": true},
+    {"name": "storage_backend", "type": "VARCHAR(20)", "default": "local"},
     {"name": "storage_key", "type": "VARCHAR(190)"},
     {"name": "original_name", "type": "VARCHAR(255)"},
     {"name": "mime_type", "type": "VARCHAR(100)"},

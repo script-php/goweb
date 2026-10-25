@@ -26,6 +26,7 @@ type options struct {
 	adminModules    []admin.Module
 	trustedProxies  []string
 	emailDefaults   config.Email
+	storageDefaults config.Storage
 	publicModules   []PublicModule
 	publicOverrides map[string]http.Handler
 	adminFeatures   admin.Features
@@ -61,6 +62,10 @@ func WithTrustedProxies(proxies []string) Option {
 
 func WithEmailConfiguration(email config.Email) Option {
 	return func(configuration *options) { configuration.emailDefaults = email }
+}
+
+func WithStorageConfiguration(storage config.Storage) Option {
+	return func(configuration *options) { configuration.storageDefaults = storage }
 }
 
 func WithPublicModule(module PublicModule) Option {
@@ -134,7 +139,7 @@ func New(webFiles fs.FS, db *sql.DB, version string, suppliedOptions ...Option) 
 	if configuration.media == nil {
 		configuration.adminFeatures.Media = false
 	}
-	adminArea, err := admin.New(db, webFiles, version, pageCatalog, resourceMetrics, configuration.emailDefaults, configuration.media, configuration.jobs, configuration.backups, configuration.adminFeatures, configuration.adminModules...)
+	adminArea, err := admin.New(db, webFiles, version, pageCatalog, resourceMetrics, configuration.emailDefaults, configuration.storageDefaults, configuration.media, configuration.jobs, configuration.backups, configuration.adminFeatures, configuration.adminModules...)
 	if err != nil {
 		return nil, err
 	}

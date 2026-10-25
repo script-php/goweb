@@ -40,6 +40,22 @@ type Storage struct {
 	UploadsDirectory string   `json:"uploads_directory"`
 	MaxUploadBytes   int64    `json:"max_upload_bytes"`
 	AllowedMIMETypes []string `json:"allowed_mime_types"`
+	Backend          string   `json:"backend"`
+	S3               S3       `json:"s3"`
+}
+
+type S3 struct {
+	Endpoint      string `json:"endpoint"`
+	Bucket        string `json:"bucket"`
+	Region        string `json:"region"`
+	AccessKey     string `json:"access_key"`
+	SecretKey     string `json:"secret_key"`
+	SecretKeyEnv  string `json:"secret_key_env"`
+	SecretKeyFile string `json:"secret_key_file"`
+	UseTLS        bool   `json:"use_tls"`
+	PathStyle     bool   `json:"path_style"`
+	CreateBucket  bool   `json:"create_bucket"`
+	Prefix        string `json:"prefix"`
 }
 
 type Backup struct {
@@ -132,6 +148,9 @@ func Load(requestedPath string) (Config, string, error) {
 		return Config{}, path, err
 	}
 	if err := resolveSecret(&cfg.Email.Password, cfg.Email.PasswordEnv, cfg.Email.PasswordFile, filepath.Dir(path), "email.password"); err != nil {
+		return Config{}, path, err
+	}
+	if err := resolveSecret(&cfg.Storage.S3.SecretKey, cfg.Storage.S3.SecretKeyEnv, cfg.Storage.S3.SecretKeyFile, filepath.Dir(path), "storage.s3.secret_key"); err != nil {
 		return Config{}, path, err
 	}
 	if err := cfg.validate(); err != nil {
@@ -241,6 +260,15 @@ func (c Config) validate() error {
 	}
 	if c.Storage.MaxUploadBytes < 0 {
 		return errors.New("storage.max_upload_bytes cannot be negative")
+	}
+	if c.Storage.Backend == "" {
+		c.Storage.Backend = "local"
+	}
+	if c.Storage.Backend != "local" && c.Storage.Backend != "s3" {
+		return errors.New("storage.backend must be local or s3")
+	}
+	if c.Storage.Backend == "s3" && (c.Storage.S3.Endpoint == "" || c.Storage.S3.Bucket == "" || c.Storage.S3.AccessKey == "" || c.Storage.S3.SecretKey == "") {
+		return errors.New("S3 storage requires endpoint, bucket, access_key, and secret_key")
 	}
 	if c.Email.Enabled {
 		if c.Email.Host == "" || c.Email.Port < 1 || c.Email.Port > 65535 || c.Email.FromAddress == "" {

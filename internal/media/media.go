@@ -44,13 +44,14 @@ type ObjectLister interface {
 }
 
 type File struct {
-	ID                                 uint64
-	StorageKey, OriginalName, MIMEType string
-	Size                               int64
-	OwnerUserID                        uint64
-	Purpose                            string
-	EntityType, EntityID               string
-	CreatedAt                          time.Time
+	ID                         uint64
+	StorageBackend, StorageKey string
+	OriginalName, MIMEType     string
+	Size                       int64
+	OwnerUserID                uint64
+	Purpose                    string
+	EntityType, EntityID       string
+	CreatedAt                  time.Time
 }
 
 type SaveOptions struct {
@@ -61,7 +62,7 @@ type SaveOptions struct {
 
 type Service struct {
 	db           *sql.DB
-	backend      Backend
+	router       BackendRouter
 	maxBytes     int64
 	allowed      map[string]struct{}
 	cleanupRules []ReferenceRule
@@ -69,6 +70,10 @@ type Service struct {
 }
 
 func New(db *sql.DB, backend Backend, maxBytes int64, allowed []string) *Service {
+	return NewRouted(db, staticRouter{backend: backend}, maxBytes, allowed)
+}
+
+func NewRouted(db *sql.DB, router BackendRouter, maxBytes int64, allowed []string) *Service {
 	if maxBytes <= 0 {
 		maxBytes = 10 << 20
 	}
@@ -79,7 +84,7 @@ func New(db *sql.DB, backend Backend, maxBytes int64, allowed []string) *Service
 	for _, value := range allowed {
 		types[strings.ToLower(strings.TrimSpace(value))] = struct{}{}
 	}
-	return &Service{db: db, backend: backend, maxBytes: maxBytes, allowed: types}
+	return &Service{db: db, router: router, maxBytes: maxBytes, allowed: types}
 }
 
 func (service *Service) MaxBytes() int64 { return service.maxBytes }
@@ -113,23 +118,27 @@ func (service *Service) Save(ctx context.Context, originalName string, source io
 	if err != nil {
 		return File{}, err
 	}
-	if err := service.backend.Put(ctx, key, bytes.NewReader(contents)); err != nil {
+	backendName, backend, err := service.router.Current(ctx)
+	if err != nil {
+		return File{}, err
+	}
+	if err := backend.Put(ctx, key, bytes.NewReader(contents)); err != nil {
 		return File{}, err
 	}
 	name := cleanOriginalName(originalName)
 	result, err := service.db.ExecContext(ctx, `INSERT INTO media
-		(storage_key, original_name, mime_type, size_bytes, owner_user_id, purpose, entity_type, entity_id)
-		VALUES (?, ?, ?, ?, NULLIF(?, 0), NULLIF(?, ''), NULLIF(?, ''), NULLIF(?, ''))`,
-		key, name, mimeType, len(contents), options.OwnerUserID, limit(options.Purpose, 100), limit(options.EntityType, 100), limit(options.EntityID, 100))
+		(storage_backend, storage_key, original_name, mime_type, size_bytes, owner_user_id, purpose, entity_type, entity_id)
+		VALUES (?, ?, ?, ?, ?, NULLIF(?, 0), NULLIF(?, ''), NULLIF(?, ''), NULLIF(?, ''))`,
+		backendName, key, name, mimeType, len(contents), options.OwnerUserID, limit(options.Purpose, 100), limit(options.EntityType, 100), limit(options.EntityID, 100))
 	if err != nil {
-		_ = service.backend.Delete(context.Background(), key)
+		_ = backend.Delete(context.Background(), key)
 		return File{}, fmt.Errorf("save media metadata: %w", err)
 	}
 	id, err := result.LastInsertId()
 	if err != nil {
 		return File{}, err
 	}
-	return File{ID: uint64(id), StorageKey: key, OriginalName: name, MIMEType: mimeType, Size: int64(len(contents)), OwnerUserID: options.OwnerUserID, Purpose: options.Purpose, EntityType: options.EntityType, EntityID: options.EntityID, CreatedAt: time.Now().UTC()}, nil
+	return File{ID: uint64(id), StorageBackend: backendName, StorageKey: key, OriginalName: name, MIMEType: mimeType, Size: int64(len(contents)), OwnerUserID: options.OwnerUserID, Purpose: options.Purpose, EntityType: options.EntityType, EntityID: options.EntityID, CreatedAt: time.Now().UTC()}, nil
 }
 
 func validateContents(mimeType string, contents []byte) error {
@@ -148,9 +157,9 @@ func validateContents(mimeType string, contents []byte) error {
 
 func (service *Service) File(ctx context.Context, id uint64) (File, error) {
 	var file File
-	err := service.db.QueryRowContext(ctx, `SELECT id, storage_key, original_name, mime_type, size_bytes,
+	err := service.db.QueryRowContext(ctx, `SELECT id, COALESCE(NULLIF(storage_backend,''),'local'), storage_key, original_name, mime_type, size_bytes,
 		COALESCE(owner_user_id, 0), COALESCE(purpose, ''), COALESCE(entity_type, ''), COALESCE(entity_id, ''), created_at FROM media WHERE id=?`, id).
-		Scan(&file.ID, &file.StorageKey, &file.OriginalName, &file.MIMEType, &file.Size, &file.OwnerUserID, &file.Purpose, &file.EntityType, &file.EntityID, &file.CreatedAt)
+		Scan(&file.ID, &file.StorageBackend, &file.StorageKey, &file.OriginalName, &file.MIMEType, &file.Size, &file.OwnerUserID, &file.Purpose, &file.EntityType, &file.EntityID, &file.CreatedAt)
 	if errors.Is(err, sql.ErrNoRows) {
 		return File{}, ErrNotFound
 	}
@@ -162,7 +171,11 @@ func (service *Service) Open(ctx context.Context, id uint64) (File, io.ReadClose
 	if err != nil {
 		return File{}, nil, err
 	}
-	reader, err := service.backend.Open(ctx, file.StorageKey)
+	backend, err := service.router.Named(ctx, file.StorageBackend)
+	if err != nil {
+		return File{}, nil, err
+	}
+	reader, err := backend.Open(ctx, file.StorageKey)
 	if err != nil {
 		return File{}, nil, err
 	}
@@ -174,7 +187,7 @@ func (service *Service) List(ctx context.Context, query string, limit int) ([]Fi
 		limit = 100
 	}
 	query = strings.TrimSpace(query)
-	rows, err := service.db.QueryContext(ctx, `SELECT id, storage_key, original_name, mime_type, size_bytes,
+	rows, err := service.db.QueryContext(ctx, `SELECT id, COALESCE(NULLIF(storage_backend,''),'local'), storage_key, original_name, mime_type, size_bytes,
 		COALESCE(owner_user_id, 0), COALESCE(purpose, ''), COALESCE(entity_type, ''), COALESCE(entity_id, ''), created_at
 		FROM media WHERE (?='' OR original_name LIKE CONCAT('%', ?, '%') OR mime_type LIKE CONCAT('%', ?, '%') OR purpose LIKE CONCAT('%', ?, '%'))
 		ORDER BY id DESC LIMIT ?`, query, query, query, query, limit)
@@ -185,7 +198,7 @@ func (service *Service) List(ctx context.Context, query string, limit int) ([]Fi
 	var files []File
 	for rows.Next() {
 		var file File
-		if err := rows.Scan(&file.ID, &file.StorageKey, &file.OriginalName, &file.MIMEType, &file.Size, &file.OwnerUserID, &file.Purpose, &file.EntityType, &file.EntityID, &file.CreatedAt); err != nil {
+		if err := rows.Scan(&file.ID, &file.StorageBackend, &file.StorageKey, &file.OriginalName, &file.MIMEType, &file.Size, &file.OwnerUserID, &file.Purpose, &file.EntityType, &file.EntityID, &file.CreatedAt); err != nil {
 			return nil, err
 		}
 		files = append(files, file)
@@ -207,7 +220,7 @@ func (service *Service) ListPage(ctx context.Context, query, purpose, date strin
 	if err := service.db.QueryRowContext(ctx, "SELECT COUNT(*) FROM media"+where, args...).Scan(&total); err != nil {
 		return nil, 0, err
 	}
-	rows, err := service.db.QueryContext(ctx, `SELECT id,storage_key,original_name,mime_type,size_bytes,COALESCE(owner_user_id,0),COALESCE(purpose,''),COALESCE(entity_type,''),COALESCE(entity_id,''),created_at FROM media`+where+` ORDER BY id DESC LIMIT ? OFFSET ?`, append(args, limit, offset)...)
+	rows, err := service.db.QueryContext(ctx, `SELECT id,COALESCE(NULLIF(storage_backend,''),'local'),storage_key,original_name,mime_type,size_bytes,COALESCE(owner_user_id,0),COALESCE(purpose,''),COALESCE(entity_type,''),COALESCE(entity_id,''),created_at FROM media`+where+` ORDER BY id DESC LIMIT ? OFFSET ?`, append(args, limit, offset)...)
 	if err != nil {
 		return nil, 0, err
 	}
@@ -215,7 +228,7 @@ func (service *Service) ListPage(ctx context.Context, query, purpose, date strin
 	var files []File
 	for rows.Next() {
 		var file File
-		if err := rows.Scan(&file.ID, &file.StorageKey, &file.OriginalName, &file.MIMEType, &file.Size, &file.OwnerUserID, &file.Purpose, &file.EntityType, &file.EntityID, &file.CreatedAt); err != nil {
+		if err := rows.Scan(&file.ID, &file.StorageBackend, &file.StorageKey, &file.OriginalName, &file.MIMEType, &file.Size, &file.OwnerUserID, &file.Purpose, &file.EntityType, &file.EntityID, &file.CreatedAt); err != nil {
 			return nil, 0, err
 		}
 		files = append(files, file)
@@ -264,7 +277,11 @@ func (service *Service) Delete(ctx context.Context, id uint64) error {
 	if err != nil {
 		return err
 	}
-	if err := service.backend.Delete(ctx, file.StorageKey); err != nil {
+	backend, err := service.router.Named(ctx, file.StorageBackend)
+	if err != nil {
+		return err
+	}
+	if err := backend.Delete(ctx, file.StorageKey); err != nil {
 		return err
 	}
 	_, err = service.db.ExecContext(ctx, "DELETE FROM media WHERE id=?", id)
@@ -272,7 +289,11 @@ func (service *Service) Delete(ctx context.Context, id uint64) error {
 }
 
 func (service *Service) CleanupOrphans(ctx context.Context, minimumAge time.Duration) (int, error) {
-	lister, ok := service.backend.(ObjectLister)
+	_, backend, err := service.router.Current(ctx)
+	if err != nil {
+		return 0, err
+	}
+	lister, ok := backend.(ObjectLister)
 	if !ok {
 		return 0, nil
 	}
@@ -302,7 +323,7 @@ func (service *Service) CleanupOrphans(ctx context.Context, minimumAge time.Dura
 		if _, exists := known[object.Key]; exists || object.Modified.After(cutoff) {
 			continue
 		}
-		if err := service.backend.Delete(ctx, object.Key); err != nil {
+		if err := backend.Delete(ctx, object.Key); err != nil {
 			return removed, err
 		}
 		removed++

@@ -232,14 +232,38 @@ Configure limits in `config.json`:
 
 ```json
 "storage": {
+  "backend": "s3",
   "uploads_directory": "uploads",
   "max_upload_bytes": 10485760,
-  "allowed_mime_types": ["image/jpeg", "image/png", "application/pdf"]
+  "allowed_mime_types": ["image/jpeg", "image/png", "application/pdf"],
+  "s3": {
+    "endpoint": "minio.example.com:9000",
+    "bucket": "website-media",
+    "region": "us-east-1",
+    "access_key": "website",
+    "secret_key": "",
+    "secret_key_env": "WEBSITE_S3_SECRET_KEY",
+    "use_tls": true,
+    "path_style": true,
+    "create_bucket": false,
+    "prefix": "production"
+  }
 }
 ```
 
-Local storage is the default and is included in the existing backup workflow.
-Applications can provide an S3-compatible adapter through
+Local storage is the default. Set `backend` to `s3` for MinIO, AWS S3, or a
+compatible service. The endpoint must not contain a path; a scheme is accepted
+but TLS is controlled by `use_tls`. Path-style lookup is normally required for
+MinIO. The bucket must already exist unless `create_bucket` is enabled for a
+credential allowed to create it. The secret supports the same inline,
+environment, and file sources as database and SMTP passwords.
+
+Admin → Settings can test and apply S3 configuration without restarting. Each
+media row records its owning backend, so switching affects new uploads while
+existing local or S3 objects remain readable and deletable. Do not remove old
+backend credentials until its media has been migrated or deleted.
+
+Applications can still provide a custom adapter through
 `platform.Options.MediaBackend`; implement `Put`, `Open`, and `Delete`.
 Implement the optional `platform.StorageObjectLister` interface to enable
 bidirectional cleanup for a custom backend.

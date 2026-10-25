@@ -109,6 +109,23 @@ func TestLoadRejectsAmbiguousOrMissingSecretSources(t *testing.T) {
 	}
 }
 
+func TestLoadResolvesS3SecretAndValidatesRequiredFields(t *testing.T) {
+	t.Setenv("GOWEB_TEST_S3_SECRET", "object-secret")
+	storage := `"storage":{"backend":"s3","s3":{"endpoint":"minio.test:9000","bucket":"media","access_key":"access","secret_key_env":"GOWEB_TEST_S3_SECRET","use_tls":true}},`
+	configured := strings.Replace(validConfig, `"authentication": {`, storage+`"authentication": {`, 1)
+	cfg, _, err := Load(writeConfig(t, configured))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if cfg.Storage.S3.SecretKey != "object-secret" {
+		t.Fatal("S3 secret was not resolved from the environment")
+	}
+	missingBucket := strings.Replace(configured, `"bucket":"media",`, "", 1)
+	if _, _, err := Load(writeConfig(t, missingBucket)); err == nil || !strings.Contains(err.Error(), "S3 storage requires") {
+		t.Fatalf("missing S3 bucket error = %v", err)
+	}
+}
+
 func writeConfig(t *testing.T, contents string) string {
 	t.Helper()
 	path := filepath.Join(t.TempDir(), "config.json")

@@ -68,55 +68,72 @@ func (service *Service) Cleanup(ctx context.Context, options CleanupOptions) (Cl
 	if options.MinimumAge < 0 {
 		options.MinimumAge = 0
 	}
-	lister, ok := service.backend.(ObjectLister)
-	if !ok {
-		return result, fmt.Errorf("media backend does not support object listing")
-	}
-	objects, err := lister.Objects(ctx)
+	backends, err := service.router.All(ctx)
 	if err != nil {
 		return result, err
 	}
-	objectMap := make(map[string]Object, len(objects))
-	for _, object := range objects {
-		objectMap[object.Key] = object
+	objectMaps := make(map[string]map[string]Object, len(backends))
+	for name, backend := range backends {
+		lister, ok := backend.(ObjectLister)
+		if !ok {
+			return result, fmt.Errorf("media backend %s does not support object listing", name)
+		}
+		objects, listErr := lister.Objects(ctx)
+		if listErr != nil {
+			return result, listErr
+		}
+		objectMaps[name] = make(map[string]Object, len(objects))
+		for _, object := range objects {
+			objectMaps[name][object.Key] = object
+		}
 	}
-	rows, err := service.db.QueryContext(ctx, "SELECT id, storage_key, created_at FROM media")
+	rows, err := service.db.QueryContext(ctx, "SELECT id, COALESCE(NULLIF(storage_backend,''),'local'), storage_key, created_at FROM media")
 	if err != nil {
 		return result, err
 	}
 	type record struct {
 		id      uint64
+		backend string
 		key     string
 		created time.Time
 	}
 	var records []record
-	known := map[string]struct{}{}
+	known := map[string]map[string]struct{}{}
 	for rows.Next() {
 		var item record
-		if err := rows.Scan(&item.id, &item.key, &item.created); err != nil {
+		if err := rows.Scan(&item.id, &item.backend, &item.key, &item.created); err != nil {
 			rows.Close()
 			return result, err
 		}
-		records, known[item.key] = append(records, item), struct{}{}
+		records = append(records, item)
+		if known[item.backend] == nil {
+			known[item.backend] = map[string]struct{}{}
+		}
+		known[item.backend][item.key] = struct{}{}
 	}
 	if err := rows.Close(); err != nil {
 		return result, err
 	}
 	cutoff := time.Now().Add(-options.MinimumAge)
-	for _, object := range objects {
-		if _, exists := known[object.Key]; exists || object.Modified.After(cutoff) {
-			continue
-		}
-		result.OrphanFiles++
-		if !options.DryRun {
-			if err := service.backend.Delete(ctx, object.Key); err != nil {
-				return result, err
+	for backendName, objects := range objectMaps {
+		for _, object := range objects {
+			if _, exists := known[backendName][object.Key]; exists || object.Modified.After(cutoff) {
+				continue
+			}
+			result.OrphanFiles++
+			if !options.DryRun {
+				if err := backends[backendName].Delete(ctx, object.Key); err != nil {
+					return result, err
+				}
 			}
 		}
 	}
 	rules := service.selectedRules(options.RuleIDs)
 	for _, item := range records {
-		if _, exists := objectMap[item.key]; exists {
+		if _, available := objectMaps[item.backend]; !available {
+			return result, fmt.Errorf("media backend %s is unavailable", item.backend)
+		}
+		if _, exists := objectMaps[item.backend][item.key]; exists {
 			continue
 		}
 		result.MissingFiles++
@@ -150,7 +167,7 @@ func (service *Service) Cleanup(ctx context.Context, options CleanupOptions) (Cl
 	}
 	if options.RemoveUnused {
 		for _, item := range records {
-			if _, exists := objectMap[item.key]; !exists || item.created.After(cutoff) {
+			if _, exists := objectMaps[item.backend][item.key]; !exists || item.created.After(cutoff) {
 				continue
 			}
 			count, err := countReferences(ctx, service.db, rules, item.id)
@@ -165,7 +182,11 @@ func (service *Service) Cleanup(ctx context.Context, options CleanupOptions) (Cl
 			if options.DryRun {
 				continue
 			}
-			if err := service.backend.Delete(ctx, item.key); err != nil {
+			backend := backends[item.backend]
+			if backend == nil {
+				return result, fmt.Errorf("media backend %s is unavailable", item.backend)
+			}
+			if err := backend.Delete(ctx, item.key); err != nil {
 				return result, err
 			}
 			if _, err := service.db.ExecContext(ctx, "DELETE FROM media WHERE id=?", item.id); err != nil {

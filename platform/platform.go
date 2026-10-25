@@ -221,16 +221,23 @@ func New(options Options) (*Runtime, error) {
 		return nil, err
 	}
 	backend := options.MediaBackend
+	var mediaService *appmedia.Service
 	if backend == nil {
 		local, err := appmedia.NewLocalBackend(options.Config.Storage.UploadsDirectory)
 		if err != nil {
 			return nil, fmt.Errorf("prepare media storage: %w", err)
 		}
-		backend = local
+		router := appmedia.NewConfiguredRouter(options.DB, options.Config.Storage, local)
+		if _, _, err := router.Current(migrationContext); err != nil {
+			return nil, fmt.Errorf("prepare configured media storage: %w", err)
+		}
+		mediaService = appmedia.NewRouted(options.DB, router, options.Config.Storage.MaxUploadBytes, options.Config.Storage.AllowedMIMETypes)
 	} else if lister, ok := backend.(StorageObjectLister); ok {
 		backend = listingStorageBackend{StorageBackend: backend, lister: lister}
 	}
-	mediaService := appmedia.New(options.DB, backend, options.Config.Storage.MaxUploadBytes, options.Config.Storage.AllowedMIMETypes)
+	if mediaService == nil {
+		mediaService = appmedia.New(options.DB, backend, options.Config.Storage.MaxUploadBytes, options.Config.Storage.AllowedMIMETypes)
+	}
 	rules := make([]appmedia.ReferenceRule, 1, len(options.MediaReferences)+1)
 	rules[0] = appmedia.ReferenceRule{ID: "user_avatar", Label: "User avatar", Table: "users", Column: "avatar_media_id"}
 	for _, rule := range options.MediaReferences {
@@ -274,7 +281,7 @@ func New(options Options) (*Runtime, error) {
 	adminFeatures := serveradmin.Features(features)
 	serverOptions := []server.Option{
 		server.WithAuthentication(authentication), server.WithTrustedProxies(options.Config.Server.TrustedProxies),
-		server.WithEmailConfiguration(options.Config.Email), server.WithAdminFeatures(adminFeatures),
+		server.WithEmailConfiguration(options.Config.Email), server.WithStorageConfiguration(options.Config.Storage), server.WithAdminFeatures(adminFeatures),
 		server.WithPublicOverrides(options.PublicOverrides),
 		server.WithMedia(mediaService),
 		server.WithJobs(jobManager),

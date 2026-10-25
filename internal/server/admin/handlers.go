@@ -20,6 +20,7 @@ import (
 	"script-php/goweb/internal/clientip"
 	appmedia "script-php/goweb/internal/media"
 	"script-php/goweb/internal/server/catalog"
+	config "script-php/goweb/platform/configuration"
 )
 
 type dashboardData struct {
@@ -1105,7 +1106,7 @@ func (admin *Admin) settings(w http.ResponseWriter, r *http.Request) {
 			settings[key] = value
 		}
 	}
-	admin.renderer.render(w, r, http.StatusOK, "settings", "Application settings", settingsData{Settings: settings, PasswordConfigured: settings["mail.password"] != "" || admin.emailDefaults.Password != ""}, "")
+	admin.renderer.render(w, r, http.StatusOK, "settings", "Application settings", settingsData{Settings: settings, PasswordConfigured: settings["mail.password"] != "" || admin.emailDefaults.Password != "", S3SecretConfigured: settings["storage.s3.secret_key"] != "" || admin.storageDefaults.S3.SecretKey != ""}, "")
 }
 
 func (admin *Admin) settingsUpdate(w http.ResponseWriter, r *http.Request) {
@@ -1129,9 +1130,21 @@ func (admin *Admin) settingsUpdate(w http.ResponseWriter, r *http.Request) {
 		"mail.retention_days":           strings.TrimSpace(r.FormValue("mail.retention_days")),
 		"security.alerts":               strconv.FormatBool(r.FormValue("security.alerts") == "true"),
 		"security.two_factor_available": strconv.FormatBool(r.FormValue("security.two_factor_available") == "true"),
+		"storage.backend":               strings.TrimSpace(r.FormValue("storage.backend")),
+		"storage.s3.endpoint":           strings.TrimSpace(r.FormValue("storage.s3.endpoint")),
+		"storage.s3.bucket":             strings.TrimSpace(r.FormValue("storage.s3.bucket")),
+		"storage.s3.region":             strings.TrimSpace(r.FormValue("storage.s3.region")),
+		"storage.s3.access_key":         strings.TrimSpace(r.FormValue("storage.s3.access_key")),
+		"storage.s3.use_tls":            strconv.FormatBool(r.FormValue("storage.s3.use_tls") == "true"),
+		"storage.s3.path_style":         strconv.FormatBool(r.FormValue("storage.s3.path_style") == "true"),
+		"storage.s3.create_bucket":      strconv.FormatBool(r.FormValue("storage.s3.create_bucket") == "true"),
+		"storage.s3.prefix":             strings.Trim(strings.TrimSpace(r.FormValue("storage.s3.prefix")), "/"),
 	}
 	if password := r.FormValue("mail.password"); password != "" {
 		settings["mail.password"] = password
+	}
+	if secret := r.FormValue("storage.s3.secret_key"); secret != "" {
+		settings["storage.s3.secret_key"] = secret
 	}
 	if settings["app.name"] == "" {
 		admin.renderer.render(w, r, http.StatusUnprocessableEntity, "settings", "Application settings", settingsData{Settings: settings}, "Application name is required")
@@ -1156,6 +1169,29 @@ func (admin *Admin) settingsUpdate(w http.ResponseWriter, r *http.Request) {
 		admin.renderer.render(w, r, http.StatusUnprocessableEntity, "settings", "Application settings", settingsData{Settings: settings}, "Email history retention must be between 1 and 3650 days")
 		return
 	}
+	if settings["storage.backend"] != "local" && settings["storage.backend"] != "s3" {
+		admin.renderer.render(w, r, http.StatusUnprocessableEntity, "settings", "Application settings", settingsData{Settings: settings}, "Storage backend must be local or S3")
+		return
+	}
+	if settings["storage.backend"] == "s3" {
+		existing, _ := admin.store.Settings(r.Context())
+		secret := settings["storage.s3.secret_key"]
+		if secret == "" {
+			secret = existing["storage.s3.secret_key"]
+		}
+		if secret == "" {
+			secret = admin.storageDefaults.S3.SecretKey
+		}
+		s3 := config.S3{Endpoint: settings["storage.s3.endpoint"], Bucket: settings["storage.s3.bucket"], Region: settings["storage.s3.region"], AccessKey: settings["storage.s3.access_key"], SecretKey: secret, UseTLS: settings["storage.s3.use_tls"] == "true", PathStyle: settings["storage.s3.path_style"] == "true", CreateBucket: settings["storage.s3.create_bucket"] == "true", Prefix: settings["storage.s3.prefix"]}
+		backend, s3Err := appmedia.NewS3Backend(s3)
+		if s3Err == nil {
+			s3Err = backend.Check(r.Context(), s3.CreateBucket, s3.Region)
+		}
+		if s3Err != nil {
+			admin.renderer.render(w, r, http.StatusUnprocessableEntity, "settings", "Application settings", settingsData{Settings: settings, S3SecretConfigured: secret != ""}, "S3 connection failed: "+s3Err.Error())
+			return
+		}
+	}
 	if err := admin.store.SaveSettings(r.Context(), settings); err != nil {
 		admin.serverError(w, r, err)
 		return
@@ -1167,15 +1203,24 @@ func (admin *Admin) settingsUpdate(w http.ResponseWriter, r *http.Request) {
 type settingsData struct {
 	Settings           map[string]string
 	PasswordConfigured bool
+	S3SecretConfigured bool
 }
 
 func (admin *Admin) settingDefaults() map[string]string {
 	mail := admin.emailDefaults
+	storage := admin.storageDefaults
+	if storage.Backend == "" {
+		storage.Backend = "local"
+	}
 	return map[string]string{
 		"app.name": "Go website", "app.tagline": "", "contact.email": "", "app.timezone": "Europe/Bucharest", "audit.retention_days": "365",
 		"mail.enabled": strconv.FormatBool(mail.Enabled), "mail.host": mail.Host, "mail.port": strconv.Itoa(mail.Port), "mail.username": mail.Username,
 		"mail.password": "", "mail.from_name": mail.FromName, "mail.from_address": mail.FromAddress, "mail.encryption": mail.Encryption,
 		"mail.retention_days": "90", "security.alerts": "false", "security.two_factor_available": "true",
+		"storage.backend": storage.Backend, "storage.s3.endpoint": storage.S3.Endpoint, "storage.s3.bucket": storage.S3.Bucket,
+		"storage.s3.region": storage.S3.Region, "storage.s3.access_key": storage.S3.AccessKey, "storage.s3.secret_key": "",
+		"storage.s3.use_tls": strconv.FormatBool(storage.S3.UseTLS), "storage.s3.path_style": strconv.FormatBool(storage.S3.PathStyle),
+		"storage.s3.create_bucket": strconv.FormatBool(storage.S3.CreateBucket), "storage.s3.prefix": storage.S3.Prefix,
 	}
 }
 
