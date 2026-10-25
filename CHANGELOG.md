@@ -11,6 +11,7 @@ This project follows semantic versioning for the exported `platform` API.
 - Exposed supported authentication helpers through the public platform package.
 - Expanded the external reference application and release-candidate compatibility checks.
 - Added an explicit external API contract gate and private security-reporting policy.
+- Updated Go supplementary modules to their newest reviewed Go 1.24-compatible releases.
 
 ## 0.32.1
 

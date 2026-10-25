@@ -21,6 +21,8 @@ software can never contain a vulnerability.
   `config.example.json`, never the local runtime configuration or backups.
 - Panic responses, database-maintenance responses, and authorization failures do
   not expose internal errors to browsers.
+- `govulncheck` reports no reachable vulnerability. Go supplementary modules
+  are pinned to the newest reviewed versions that retain Go 1.24 support.
 
 ## Deployment responsibilities
 
