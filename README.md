@@ -294,7 +294,8 @@ copying it so future platform improvements continue to apply.
 
 ## Authentication helpers
 
-`internal/auth` provides the complete authentication foundation:
+The public `platform` package provides the authentication helpers available to
+importing applications:
 
 - bcrypt password hashing with cost 12
 - Random 256-bit session tokens; only SHA-256 hashes are stored
@@ -332,13 +333,13 @@ protection:
 ```go
 mux.Handle(
     "GET /account",
-    auth.RequireLogin("/login", http.HandlerFunc(pageHandlers.Account)),
+    platform.RequireLogin("/login", http.HandlerFunc(pageHandlers.Account)),
 )
 
 mux.Handle(
     "GET /admin",
-    auth.RequireLogin("/login",
-        auth.RequireRole("admin", http.HandlerFunc(pageHandlers.Admin)),
+    platform.RequireLogin("/login",
+        platform.RequireRole("admin", http.HandlerFunc(pageHandlers.Admin)),
     ),
 )
 ```

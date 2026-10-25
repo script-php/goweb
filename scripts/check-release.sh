@@ -2,8 +2,8 @@
 set -eu
 
 version=$(tr -d '[:space:]' < version.txt)
-if ! printf '%s\n' "$version" | grep -Eq '^[0-9]+\.[0-9]+\.[0-9]+$'; then
-  echo "version.txt must contain exactly major.minor.patch" >&2
+if ! printf '%s\n' "$version" | grep -Eq '^[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z]+([.-][0-9A-Za-z]+)*)?$'; then
+  echo "version.txt must contain a semantic version such as 1.0.0 or 1.0.0-rc.1" >&2
   exit 1
 fi
 if ! grep -Fqx "## $version" CHANGELOG.md; then

@@ -116,12 +116,36 @@ func TestBidirectionalCleanupAndReferencesIntegration(t *testing.T) {
 	}
 	defer db.Close()
 	ctx := context.Background()
-	if _, err := db.ExecContext(ctx, `CREATE TABLE IF NOT EXISTS media_cleanup_test (id BIGINT UNSIGNED PRIMARY KEY AUTO_INCREMENT, media_id BIGINT UNSIGNED NULL)`); err != nil {
+	if _, err := db.ExecContext(ctx, `DROP TABLE IF EXISTS media_cleanup_test`); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := db.ExecContext(ctx, `CREATE TABLE media_cleanup_test (id BIGINT UNSIGNED PRIMARY KEY AUTO_INCREMENT, media_id BIGINT UNSIGNED NULL)`); err != nil {
 		t.Fatal(err)
 	}
 	t.Cleanup(func() { _, _ = db.ExecContext(context.Background(), "DROP TABLE IF EXISTS media_cleanup_test") })
 	backend, err := NewLocalBackend(t.TempDir())
 	if err != nil {
+		t.Fatal(err)
+	}
+	// The integration database may contain application media from earlier jobs
+	// or local development. Mirror those objects into this test backend so this
+	// cleanup run observes only the missing row created below.
+	rows, err := db.QueryContext(ctx, "SELECT storage_key FROM media")
+	if err != nil {
+		t.Fatal(err)
+	}
+	for rows.Next() {
+		var key string
+		if err := rows.Scan(&key); err != nil {
+			rows.Close()
+			t.Fatal(err)
+		}
+		if err := backend.Put(ctx, key, strings.NewReader("existing test object")); err != nil {
+			rows.Close()
+			t.Fatal(err)
+		}
+	}
+	if err := rows.Close(); err != nil {
 		t.Fatal(err)
 	}
 	service := New(db, backend, 1024, []string{"text/plain"})

@@ -1,7 +1,7 @@
 # Publishing and consuming GoWeb
 
 GoWeb supports both repository clones and applications that import the public
-platform package. Releases use semantic versions and tags such as `v0.32.1`.
+platform package. Releases use semantic versions and tags such as `v1.0.0-rc.1`.
 
 ## Canonical module resolution
 
@@ -14,7 +14,7 @@ Set the proxy for consuming builds:
 
 ```sh
 go env -w GOPROXY=https://modules.example.com,https://proxy.golang.org,direct
-go get script-php/goweb@v0.32.1
+go get script-php/goweb@v1.0.0-rc.1
 ```
 
 The proxy must publish these endpoints, with escaped versions as defined by the
@@ -22,9 +22,9 @@ Go module proxy protocol:
 
 ```text
 /script-php/goweb/@v/list
-/script-php/goweb/@v/v0.32.1.info
-/script-php/goweb/@v/v0.32.1.mod
-/script-php/goweb/@v/v0.32.1.zip
+/script-php/goweb/@v/v1.0.0-rc.1.info
+/script-php/goweb/@v/v1.0.0-rc.1.mod
+/script-php/goweb/@v/v1.0.0-rc.1.zip
 ```
 
 If releases are private or absent from the public checksum database, configure
@@ -53,8 +53,8 @@ not need to change when the proxy maps it to that origin.
 5. Create an annotated tag on that commit:
 
    ```sh
-   git tag -a v0.32.1 -m "GoWeb v0.32.1"
-   git push origin main v0.32.1
+   git tag -a v1.0.0-rc.1 -m "GoWeb v1.0.0-rc.1"
+   git push origin main v1.0.0-rc.1
    ```
 
 Do not tag a dirty or older commit. The release workflow rejects a tag that
@@ -80,7 +80,7 @@ is enforced only for tag builds or when `RELEASE_TAG` is explicitly supplied.
 Review `CHANGELOG.md` and `UPGRADING.md`, then update and test on a branch:
 
 ```sh
-go get script-php/goweb@v0.32.1
+go get script-php/goweb@v1.0.0-rc.1
 go mod tidy
 go test ./...
 go build ./...

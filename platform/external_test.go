@@ -31,7 +31,7 @@ import (
 )
 
 func pages(p *platform.Pages) error {
-	return p.Handle("GET /example", platform.Page{ID: "example", Path: "/example"}, http.HandlerFunc(func(http.ResponseWriter, *http.Request) {}))
+	return p.Handle("GET /example", platform.Page{ID: "example", Path: "/example"}, platform.RequireLogin("/login", http.HandlerFunc(func(http.ResponseWriter, *http.Request) {})))
 }
 
 func admin(a *platform.Admin) error {
@@ -40,6 +40,7 @@ func admin(a *platform.Admin) error {
 
 var _ = platform.Options{Config: configuration.Config{}, RegisterPages: pages, RegisterAdmin: admin}
 var _ = platform.RateLimitPolicy{ID: "example", Limit: 10, Window: time.Minute, Match: func(r *http.Request) bool { return r.URL.Path == "/example" }, Key: platform.RateLimitByIP}
+var _ *platform.AuthenticatedUser = platform.CurrentUser(context.Background())
 var _ func(*platform.Runtime, context.Context) error = (*platform.Runtime).Run
 var _ *platform.Media
 

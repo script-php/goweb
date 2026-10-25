@@ -75,7 +75,7 @@
 
 ## Next phase — platform 1.0
 
-- [ ] Connect a Git remote and module proxy, then publish the first tagged release.
+- [ ] Push and publish the prepared `v1.0.0-rc.1` release candidate, then verify it through the Go module proxy.
 - [x] Add automated tagged releases and module-resolution documentation.
 - [x] Add CI for supported Go, MySQL, and MariaDB versions.
 - [x] Add a production-ready file upload and media-management API.

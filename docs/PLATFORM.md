@@ -41,7 +41,7 @@ The same API supports direct-clone projects and external projects that import
 An importing application normally declares:
 
 ```go
-require script-php/goweb v0.32.1
+require script-php/goweb v1.0.0-rc.1
 ```
 
 The short module path requires a Go module proxy that maps
@@ -55,6 +55,25 @@ replace script-php/goweb => ../goweb
 
 Do not change the platform's module path inside an application fork; imports
 and upgrade compatibility are based on the canonical path above.
+
+## Authentication in application handlers
+
+Importing projects use the supported helpers in `platform`; they must not
+import implementation packages under `internal/`:
+
+```go
+handler := platform.RequireLogin("/login",
+    platform.RequirePermission("projects.view", http.HandlerFunc(showProject)),
+)
+
+func showProject(w http.ResponseWriter, r *http.Request) {
+    user := platform.CurrentUser(r.Context())
+    // user contains the signed-in account, roles, and merged permissions.
+}
+```
+
+`RequireRole`, `SafeRedirectPath`, and the `AuthenticatedUser` type are also
+part of the public extension API.
 
 ## Resource directories
 

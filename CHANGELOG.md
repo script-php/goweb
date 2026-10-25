@@ -2,12 +2,17 @@
 
 This project follows semantic versioning for the exported `platform` API.
 
-## 0.32.1
+## 1.0.0-rc.1
 
 - Moved login throttling into atomic database-backed counters shared by multiple website instances.
 - Added a protected rate-limit schema and cross-instance integration coverage.
 - Added public request rate-limit policies with IP/user/custom keys, HTTP 429 responses, and scheduled stale-counter cleanup.
 - Added a responsive rate-limit administration page with search, active-block visibility, permission-protected clearing, and audit records.
+- Exposed supported authentication helpers through the public platform package.
+- Expanded the external reference application and release-candidate compatibility checks.
+
+## 0.32.1
+
 - Fixed release validation incorrectly treating branch names as version tags.
 - Fixed MariaDB CI startup checks to use the health command bundled with its official image.
 - Made database backups disable MySQL client column statistics when dumping MariaDB.
