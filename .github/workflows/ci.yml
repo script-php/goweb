@@ -23,6 +23,8 @@ jobs:
           cache: true
       - run: go test -race ./...
       - run: go vet ./...
+      - name: Verify external platform API contract
+        run: go test ./platform -run TestExternalModuleCanCompileAgainstPlatform -count=1
       - run: ./scripts/check-release.sh
       - name: Build release binary
         run: CGO_ENABLED=0 go build -trimpath -o /tmp/goweb .

@@ -10,6 +10,7 @@ This project follows semantic versioning for the exported `platform` API.
 - Added a responsive rate-limit administration page with search, active-block visibility, permission-protected clearing, and audit records.
 - Exposed supported authentication helpers through the public platform package.
 - Expanded the external reference application and release-candidate compatibility checks.
+- Added an explicit external API contract gate and private security-reporting policy.
 
 ## 0.32.1
 

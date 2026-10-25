@@ -23,6 +23,7 @@ func TestExternalModuleCanCompileAgainstPlatform(t *testing.T) {
 
 import (
 	"context"
+	"io"
 	"net/http"
 	"time"
 
@@ -38,9 +39,25 @@ func admin(a *platform.Admin) error {
 	return a.AddDashboardWidget(platform.DashboardWidget{ID: "example", Title: "Example"})
 }
 
-var _ = platform.Options{Config: configuration.Config{}, RegisterPages: pages, RegisterAdmin: admin}
+var _ = platform.Options{
+	DB: nil, Config: configuration.Config{}, Version: "contract",
+	Resources: platform.Resources{}, Schemas: platform.Schemas{}, Features: platform.DefaultFeatures(),
+	RegisterPages: pages, RegisterAdmin: admin, PublicOverrides: map[string]http.Handler{}, AdminOverrides: map[string]http.Handler{},
+	MediaBackend: nil, MediaReferences: []platform.MediaReferenceRule{}, BackgroundJobs: []platform.BackgroundJob{},
+	RateLimits: []platform.RateLimitPolicy{}, Backups: nil,
+}
 var _ = platform.RateLimitPolicy{ID: "example", Limit: 10, Window: time.Minute, Match: func(r *http.Request) bool { return r.URL.Path == "/example" }, Key: platform.RateLimitByIP}
 var _ *platform.AuthenticatedUser = platform.CurrentUser(context.Background())
+var _ func(string) (platform.Config, string, error) = platform.LoadConfig
+var _ func(string, http.Handler) http.Handler = platform.RequireLogin
+var _ func(string, http.Handler) http.Handler = platform.RequireRole
+var _ func(string, http.Handler) http.Handler = platform.RequirePermission
+var _ func(string, string) string = platform.SafeRedirectPath
+var _ func(*platform.Pages, string, platform.Page, http.Handler) error = (*platform.Pages).Handle
+var _ func(*platform.Admin, string, platform.Page, http.Handler) error = (*platform.Admin).Handle
+var _ func(*platform.Admin, http.ResponseWriter, *http.Request, int, string, string, any) = (*platform.Admin).Render
+var _ func(*platform.Media, context.Context, string, io.Reader, platform.MediaOptions) (platform.MediaFile, error) = (*platform.Media).Save
+var _ func(*platform.Media, context.Context, uint64) (platform.MediaFile, io.ReadCloser, error) = (*platform.Media).Open
 var _ func(*platform.Runtime, context.Context) error = (*platform.Runtime).Run
 var _ *platform.Media
 
