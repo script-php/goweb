@@ -1,7 +1,10 @@
 APP_NAME ?= website
 RELEASE_DIR ?= release
+DIST_DIR ?= dist
+RELEASE_OS ?= linux
+RELEASE_ARCHES ?= amd64 arm64
 
-.PHONY: backup build check clean integration-test release-check restore run test verify-backup
+.PHONY: backup build check clean integration-test release release-check restore run test verify-backup
 
 build:
 	mkdir -p "$(RELEASE_DIR)"
@@ -19,6 +22,9 @@ check:
 
 release-check: check
 	./scripts/check-release.sh
+
+release: release-check
+	./scripts/build-release.sh "$(DIST_DIR)" "$(RELEASE_OS)" $(RELEASE_ARCHES)
 
 integration-test:
 	@test -n "$$WEBSITE_INTEGRATION_DSN" || { echo "WEBSITE_INTEGRATION_DSN is required"; exit 1; }

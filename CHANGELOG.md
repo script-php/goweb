@@ -18,6 +18,7 @@ This project follows semantic versioning for the exported `platform` API.
 - Made readiness fail immediately when graceful shutdown begins.
 - Added renewable database leases to prevent cross-instance background-job overlap and recover work after crashes.
 - Added built-in S3-compatible/MinIO media storage with live admin configuration, secure secret sources, bucket checks, and per-object backend routing.
+- Added a validated `make release` workflow that creates GitHub-ready Linux AMD64 and ARM64 ZIP packages with checksums.
 
 ## 0.32.1
 

@@ -50,8 +50,19 @@ change.
    `CHANGELOG.md`.
 3. Run `make release-check` and the database integration matrix locally when
    possible.
-4. Commit the complete release and ensure the working tree is clean.
-5. Create an annotated tag on that commit:
+4. Build the same ZIP files that GitHub will publish:
+
+   ```sh
+   make release
+   ```
+
+   This creates Linux AMD64 and ARM64 packages plus `SHA256SUMS` under `dist/`.
+   Each ZIP contains a clean deployable directory with the binary, example
+   `config.json`, empty `uploads/`, documentation, and dependency manifest. It
+   never copies the live `release/config.json`, uploads, backups, or
+   `tables.hash`. Use `RELEASE_ARCHES=amd64` to build only one architecture.
+5. Commit the complete release and ensure the working tree is clean.
+6. Create an annotated tag on that commit:
 
    ```sh
    git tag -a v1.0.0-rc.1 -m "GoWeb v1.0.0-rc.1"
@@ -62,8 +73,9 @@ Do not tag a dirty or older commit. The release workflow rejects a tag that
 does not exactly match `version.txt` or `CHANGELOG.md`.
 
 When the tag reaches GitHub, `.github/workflows/release.yml` reruns tests, vet,
-vulnerability scanning, and archive validation. It creates static Linux AMD64
-and ARM64 archives, records the Go module graph in `DEPENDENCIES.txt`, produces
+vulnerability scanning, and archive validation. It runs the same `make release`
+target to create static Linux AMD64 and ARM64 ZIP files, records the Go module
+graph in `DEPENDENCIES.txt`, produces
 SHA-256 checksums, uploads the workflow artifact, and creates the GitHub release.
 
 ## CI guarantees
